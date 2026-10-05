@@ -1,18 +1,19 @@
 export { courses } from "./courses.js";
 
 export const siteContent = {
-  name: "HIACDI Tech Hub",
-  motto: "Learn. Build. Innovate.",
-  tagline: "Technology Education + Innovation + Digital Solutions",
+  name: "HIACDI",
+  fullName: "Humanity, Inclusion and Advancement Community Development Initiative",
+  motto: "Advancing Humanity. Championing Inclusion. Transforming Communities.",
+  tagline: "Community development · Inclusion · Advancement",
   announcement:
-    "New intake alert! HIACDI Tech Hub bootcamps are now open. Apply now",
+    "HIACDI works with communities on health, protection, education, livelihoods, and climate. Get involved.",
   email: "hiacditechhub@gmail.com",
   admissionsEmail: "hiacditechhub@gmail.com",
   location: "Kenya",
   whatsapp: process.env.WHATSAPP || "0741808582",
   hero: {
-    title: "Empowering the Next Generation of Digital Innovators",
-    text: "This is for everyone with a passion to learn technology — whether you are in primary school, secondary school, a graduate, a working professional, or anyone who wants to know more about tech. If you have the passion to learn, you are highly welcome. Join us.",
+    title: "Inclusive communities where every person can learn, grow, and live with dignity",
+    text: "HIACDI is a community-based organisation. We work with households, schools, youth, women, and local leaders on health, protection, education, livelihoods, environment, and digital inclusion.",
     logoSrc: "/brand/logo-wordmark.png?v=3",
   },
   learningModes: [

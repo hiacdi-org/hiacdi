@@ -1,25 +1,182 @@
 import { useRef, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import Hero from "../components/home/Hero";
+import VerifyCertificateCard from "../components/verify/VerifyCertificateCard";
+import RichHtml from "../components/cms/RichHtml";
+import { programmeGroups } from "../data/programmes";
+import { about } from "../data/about";
 import { useCatalog } from "../hooks/useContent";
+import { useCmsHome } from "../hooks/useCms";
 import { features, graduateEmployers, site } from "../data/site";
 import { apiUrl } from "../services/apiBase";
+import { optimizedImage } from "../utils/media";
 
 export default function Home() {
   const { onBook } = useOutletContext();
+  const { data, error } = useCmsHome();
+  if (!data && !error) {
+    return <div className="animate-pulse px-4 py-24 text-center text-sm text-muted">Loading HIACDI…</div>;
+  }
+  if (!data) {
+    return (
+      <div>
+        <Hero onBook={onBook} />
+        <AboutSummary />
+        <ProgrammesOverview />
+        <ImpactStrip />
+        <section className="bg-soft px-4 py-14 sm:px-6 sm:py-20">
+          <VerifyCertificateCard compact />
+        </section>
+      </div>
+    );
+  }
+  const settings = data.settings || {};
+  const extras = {
+    stats: data.stats || [],
+    partners: data.partners?.length ? data.partners : graduateEmployers.map((item) => ({ name: item.name, logo: { url: item.src } })),
+    testimonials: data.testimonials || [],
+    slides: data.slides || [],
+  };
   return (
     <div>
-      <Hero onBook={onBook} />
-      <FeatureSlider />
-      <CoursesPreview />
-      <Partners />
-      <Stats />
-      <Awards />
-      <CommunityBanner />
-      <Testimonials />
-      <Stories />
-      <StayUpdated />
+      {(data.sections || []).map((section) => (
+        <HomeSection key={section.id || section.key} section={section} extras={extras} settings={settings} onBook={onBook} />
+      ))}
+      {(data.sections || []).some((row) => row.key === "verify") ? null : (
+        <section className="bg-soft px-4 py-14 sm:px-6 sm:py-20">
+          <VerifyCertificateCard compact />
+        </section>
+      )}
     </div>
+  );
+}
+
+function HomeSection({ section, extras, settings, onBook }) {
+  if (section.key === "hero") {
+    return <Hero onBook={onBook} section={section} slide={extras.slides[0]} settings={settings} />;
+  }
+  if (section.key === "about-summary") {
+    return <AboutSummary section={section} />;
+  }
+  if (section.key === "programmes-overview") {
+    return <ProgrammesOverview section={section} />;
+  }
+  if (section.key === "impact") {
+    return <ImpactStrip section={section} stats={extras.stats} />;
+  }
+  if (section.key === "verify") {
+    return (
+      <section className="bg-soft px-4 py-14 sm:px-6 sm:py-20">
+        <VerifyCertificateCard compact />
+      </section>
+    );
+  }
+  if (section.key === "news-preview") {
+    return <NewsPreview section={section} />;
+  }
+  if (section.key === "get-involved") {
+    return <GetInvolvedBand section={section} />;
+  }
+  if (section.key === "partners") {
+    return <Partners section={section} partners={extras.partners} />;
+  }
+  if (section.key === "testimonials") {
+    return <Testimonials section={section} testimonials={extras.testimonials} />;
+  }
+  if (section.key === "features") {
+    return <FeatureSlider />;
+  }
+  if (section.key === "courses") {
+    return <CoursesPreview section={section} />;
+  }
+  return (
+    <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+      {section.subtitle ? <p className="text-sm font-semibold text-gold">{section.subtitle}</p> : null}
+      {section.title ? <h2 className="font-heading mt-2 text-2xl font-bold text-navy">{section.title}</h2> : null}
+      <RichHtml html={section.body} className="mt-4 text-sm leading-7 text-muted" />
+    </section>
+  );
+}
+
+function AboutSummary({ section }) {
+  return (
+    <section className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-16">
+      <p className="text-sm font-semibold text-gold">{section?.subtitle || "About HIACDI"}</p>
+      <h2 className="font-heading mt-2 max-w-3xl text-2xl font-bold text-navy sm:text-4xl">{section?.title || site.fullName}</h2>
+      <div className="mt-8 grid gap-5 md:grid-cols-2">
+        <article className="rounded-2xl border border-navy/10 bg-white p-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold">Our Vision</p>
+          <p className="mt-3 text-sm font-semibold leading-7 text-navy">{section?.extra?.vision || about.vision}</p>
+        </article>
+        <article className="rounded-2xl border border-navy/10 bg-white p-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold">Our Mission</p>
+          <p className="mt-3 text-sm leading-7 text-muted">{section?.extra?.mission || about.mission}</p>
+        </article>
+      </div>
+      <RichHtml html={section?.body} className="mt-4 text-sm leading-7 text-muted" />
+      <div className="mt-6 flex flex-wrap gap-3">
+        {(section?.buttons || []).map((button) => (
+          <Link key={button.label} to={button.url || "/about"} className="rounded-full bg-navy px-5 py-2.5 text-sm font-semibold text-white">
+            {button.label}
+          </Link>
+        ))}
+        {section?.buttons?.length ? null : (
+          <>
+            <Link to="/about" className="rounded-full bg-navy px-5 py-2.5 text-sm font-semibold text-white">
+              About HIACDI
+            </Link>
+            <Link to="/get-involved" className="rounded-full border border-navy/20 px-5 py-2.5 text-sm font-semibold text-navy">
+              Get involved
+            </Link>
+          </>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function ProgrammesOverview({ section }) {
+  return (
+    <section className="bg-[#f7f4ec] px-4 py-14 sm:px-6 sm:py-16">
+      <div className="mx-auto max-w-6xl">
+        <p className="text-sm font-semibold text-gold">{section?.subtitle || "Our Programmes"}</p>
+        <h2 className="font-heading mt-2 text-2xl font-bold text-navy sm:text-4xl">{section?.title || "Community work across twelve areas"}</h2>
+        <RichHtml html={section?.body} className="mt-3 max-w-3xl text-sm text-muted" />
+        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {programmeGroups.map((group) => (
+            <Link key={group.slug} to={`/programmes/${group.slug}`} className="rounded-2xl bg-white p-5 shadow-sm hover:border-gold">
+              <h3 className="font-heading font-bold text-navy">{group.title}</h3>
+              <p className="mt-2 text-sm leading-6 text-muted">{group.summary}</p>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ImpactStrip({ stats }) {
+  const items = stats?.length
+    ? stats
+    : [
+        { value: "12", label: "Programme areas from health to digital inclusion" },
+        { value: "Community-led", label: "Work designed with local people and partners" },
+        { value: "Verifiable", label: "Training graduates receive a HIACDI certificate" },
+      ];
+  return (
+    <section className="bg-navy px-4 py-12 text-white sm:px-6">
+      <div className="mx-auto grid max-w-6xl gap-6 sm:grid-cols-3">
+        {items.map((item) => (
+          <div key={item.label}>
+            <p className="font-heading text-3xl font-bold text-gold">
+              {item.value}
+              {item.suffix || ""}
+            </p>
+            <p className="mt-2 text-sm text-white/80">{item.label}</p>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -66,15 +223,15 @@ function FeatureSlider() {
   );
 }
 
-function CoursesPreview() {
+function CoursesPreview({ section }) {
   const catalog = useCatalog();
 
   return (
     <section className="bg-navy-dark px-4 py-12 text-white sm:px-6 sm:py-16">
       <div className="mx-auto max-w-6xl">
-        <h2 className="font-heading text-2xl font-bold sm:text-3xl">Six course parts</h2>
+        <h2 className="font-heading text-2xl font-bold sm:text-3xl">{section?.title || "Six course parts"}</h2>
         <p className="mt-2 max-w-2xl text-sm text-white/75">
-          Choose a path, then pick the program and learning mode that fits you.
+          {section?.subtitle || "Choose a path, then pick the program and learning mode that fits you."}
         </p>
         <div className="mt-6 grid gap-4 sm:mt-8 sm:gap-5 md:grid-cols-2 xl:grid-cols-3">
           {catalog.map((category) => (
@@ -100,22 +257,40 @@ function CoursesPreview() {
   );
 }
 
-function Partners() {
+function Partners({ section, partners: cmsPartners }) {
+  const items = cmsPartners?.length
+    ? cmsPartners.map((p) => ({ name: p.name, src: p.logo?.url, href: p.website }))
+    : graduateEmployers.map((e) => ({ name: e.name, src: e.src, href: "" }));
   return (
     <section className="bg-white px-4 py-14 sm:px-6 sm:py-20">
       <h2 className="font-heading px-2 text-center text-2xl font-bold text-navy sm:text-3xl md:text-4xl">
-        Where Our Graduates Work
+        {section?.title || "Where Our Graduates Work"}
       </h2>
+      {section?.subtitle ? (
+        <p className="mx-auto mt-3 max-w-2xl text-center text-sm text-muted">{section.subtitle}</p>
+      ) : null}
       <div className="mx-auto mt-10 grid max-w-5xl grid-cols-2 items-center gap-x-6 gap-y-10 sm:mt-14 sm:grid-cols-3 md:grid-cols-5 md:gap-x-10 md:gap-y-12">
-        {graduateEmployers.map((employer) => (
-          <div key={employer.name} className="flex h-14 items-center justify-center px-2 sm:h-16">
+        {items.map((employer) => {
+          const img = (
             <img
-              src={employer.src}
+              src={optimizedImage(employer.src) || employer.src}
               alt={employer.name}
               className="partner-logo max-h-10 w-auto object-contain sm:max-h-12"
+              loading="lazy"
             />
-          </div>
-        ))}
+          );
+          return (
+            <div key={employer.name} className="flex h-14 items-center justify-center px-2 sm:h-16">
+              {employer.href ? (
+                <a href={employer.href} target="_blank" rel="noopener noreferrer">
+                  {img}
+                </a>
+              ) : (
+                img
+              )}
+            </div>
+          );
+        })}
       </div>
     </section>
   );
@@ -187,29 +362,105 @@ function CommunityBanner() {
   );
 }
 
-function Testimonials() {
+function NewsPreview({ section }) {
+  const btn = section?.buttons?.[0];
+  return (
+    <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+      <p className="text-sm font-semibold text-gold">{section?.subtitle || "News & Events"}</p>
+      <h2 className="font-heading mt-2 text-2xl font-bold text-navy">
+        {section?.title || "What is happening in the community"}
+      </h2>
+      {section?.body ? (
+        <RichHtml html={section.body} className="mt-3 max-w-2xl text-sm text-muted" />
+      ) : (
+        <p className="mt-3 max-w-2xl text-sm text-muted">
+          Field updates, workshops, and campaigns. Open the news section for the full calendar.
+        </p>
+      )}
+      <Link to={btn?.url || "/news"} className="mt-5 inline-flex text-sm font-semibold text-gold">
+        {btn?.label || "News & Events →"}
+      </Link>
+    </section>
+  );
+}
+
+function GetInvolvedBand({ section }) {
+  const buttons = section?.buttons?.length
+    ? section.buttons
+    : [
+        { label: "Ways to take part", url: "/get-involved", style: "primary" },
+        { label: "Contact", url: "/contact", style: "secondary" },
+      ];
+  return (
+    <section className="bg-navy-dark px-4 py-12 text-center text-white sm:px-6">
+      <h2 className="font-heading text-2xl font-bold sm:text-3xl">{section?.title || "Get involved"}</h2>
+      {section?.body ? (
+        <RichHtml html={section.body} className="mx-auto mt-3 max-w-2xl text-sm text-white/80" />
+      ) : (
+        <p className="mx-auto mt-3 max-w-2xl text-sm text-white/80">
+          {section?.subtitle ||
+            "Volunteer, partner, donate, or train with HIACDI. Communities move when people take part."}
+        </p>
+      )}
+      <div className="mt-6 flex flex-wrap justify-center gap-3">
+        {buttons.map((btn) => (
+          <Link
+            key={btn.label}
+            to={btn.url || "/"}
+            className={
+              btn.style === "secondary"
+                ? "rounded-full border border-white/30 px-6 py-3 text-sm font-semibold text-white"
+                : "rounded-full bg-gold px-6 py-3 text-sm font-semibold text-navy"
+            }
+          >
+            {btn.label}
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function Testimonials({ section, testimonials: cmsItems }) {
+  const items = cmsItems?.length
+    ? cmsItems
+    : [
+        {
+          quote:
+            "HIACDI Tech Hub is built so learners do not only attend class. They practise, build, and leave with work they can show.",
+          name: site.name,
+          role: "Learn. Build. Innovate.",
+          photo: { url: "/brand/logo-mark.png?v=3" },
+        },
+      ];
   return (
     <section className="bg-white px-4 py-12 sm:px-6 sm:py-20">
       <h2 className="font-heading text-center text-2xl font-bold text-navy sm:text-3xl">
-        Our Testimonials
+        {section?.title || "Our Testimonials"}
       </h2>
-      <div className="mx-auto mt-8 max-w-4xl sm:mt-10">
-        <article className="flex flex-col items-center gap-5 rounded-2xl bg-navy-dark p-5 text-white sm:p-8 md:flex-row md:items-center md:gap-6">
-          <div className="flex-1">
-            <p className="text-sm leading-7 text-white/90 sm:text-base sm:leading-8">
-              HIACDI Tech Hub is built so learners do not only attend class.
-              They practise, build, and leave with work they can show. That is
-              the standard we hold for every program.
-            </p>
-            <p className="mt-4 font-semibold text-gold sm:mt-5">{site.name}</p>
-            <p className="text-sm text-white/70">Learn. Build. Innovate.</p>
-          </div>
-          <img
-            src="/brand/logo-mark.png?v=3"
-            alt=""
-            className="h-20 w-20 rounded-full object-contain sm:h-28 sm:w-28"
-          />
-        </article>
+      <div className="mx-auto mt-8 max-w-4xl space-y-6 sm:mt-10">
+        {items.map((item) => (
+          <article
+            key={item.name + (item.quote || "")}
+            className="flex flex-col items-center gap-5 rounded-2xl bg-navy-dark p-5 text-white sm:p-8 md:flex-row md:items-center md:gap-6"
+          >
+            <div className="flex-1">
+              <p className="text-sm leading-7 text-white/90 sm:text-base sm:leading-8">
+                {item.quote}
+              </p>
+              <p className="mt-4 font-semibold text-gold sm:mt-5">{item.name}</p>
+              <p className="text-sm text-white/70">{item.role}</p>
+            </div>
+            {item.photo?.url ? (
+              <img
+                src={optimizedImage(item.photo.url, 200) || item.photo.url}
+                alt=""
+                className="h-20 w-20 rounded-full object-contain sm:h-28 sm:w-28"
+                loading="lazy"
+              />
+            ) : null}
+          </article>
+        ))}
       </div>
     </section>
   );

@@ -11,6 +11,10 @@ const navItems = [
   { to: adminPath("applicants"), label: "Applicants" },
   { to: adminPath("calls"), label: "Booked Calls" },
   { to: adminPath("graduates"), label: "Certificates" },
+  { to: adminPath("certificates"), label: "Issue certificates" },
+  { to: adminPath("programmes"), label: "Programmes" },
+  { to: adminPath("site"), label: "Site Content" },
+  { to: adminPath("content"), label: "News & files" },
   { to: adminPath("contacts"), label: "Contact Messages" },
   { to: adminPath("broadcast"), label: "Email Students" },
   { to: adminPath("visitors"), label: "Website Visitors" },
@@ -67,7 +71,7 @@ export default function AdminLayout() {
             <img src="/brand/logo-mark.png?v=3" alt="HIACDI Tech Hub" className="h-10 w-auto object-contain" />
             <div>
               <p className="font-heading text-sm font-bold leading-tight">
-                HIACDI <span className="text-gold">TECH</span> HUB
+                HIACDI
               </p>
               <p className="text-xs text-white/60">Admin Panel</p>
             </div>

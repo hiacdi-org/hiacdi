@@ -4,11 +4,12 @@ import { adminPath } from "../adminPath";
 import Countdown from "../components/ui/Countdown";
 import PageLoader from "../components/ui/PageLoader";
 import { useLiveRefresh } from "../hooks/useLiveRefresh";
-import { fetchApplicationWindow, fetchApplications, fetchGraduates } from "../services/api";
+import { fetchApplicationWindow, fetchApplications, fetchGraduates, fetchIssuedCertificates } from "../services/api";
 
 export default function AdminDashboard() {
   const [apps, setApps] = useState([]);
   const [graduates, setGraduates] = useState([]);
+  const [certs, setCerts] = useState({ total: 0, active: 0, revoked: 0, issuedThisMonth: 0, rows: [] });
   const [win, setWin] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -24,13 +25,15 @@ export default function AdminDashboard() {
   }, []);
 
   const refreshDashboard = useCallback(async () => {
-    const [appsData, graduatesData, windowData] = await Promise.all([
+    const [appsData, graduatesData, windowData, certsData] = await Promise.all([
       fetchApplications(),
       fetchGraduates(),
       fetchApplicationWindow(),
+      fetchIssuedCertificates({ limit: 10 }).catch(() => ({ total: 0, active: 0, revoked: 0, issuedThisMonth: 0, rows: [] })),
     ]);
     setApps(appsData);
     setGraduates(graduatesData);
+    setCerts(certsData);
     if (windowData) setWin(windowData);
   }, []);
 
@@ -55,7 +58,7 @@ export default function AdminDashboard() {
       <p className="text-sm font-semibold text-gold">Overview</p>
       <h1 className="font-heading mt-1 text-3xl font-bold text-navy">Welcome back</h1>
       <p className="mt-2 text-sm text-muted">
-        Here&apos;s what&apos;s happening across HIACDI Tech Hub right now.
+        Here&apos;s what&apos;s happening across HIACDI right now.
       </p>
       {error ? <p className="mt-4 text-sm font-semibold text-red-700">{error}</p> : null}
 
@@ -69,7 +72,29 @@ export default function AdminDashboard() {
         <StatCard label="Open (unreviewed)" value={openApps} accent="bg-navy-mid" />
         <StatCard label="Closed" value={closedApps} accent="bg-navy-dark" />
         <StatCard label="Awarded graduates" value={graduates.length} accent="bg-gold-dark" />
+        <StatCard label="Issued certificates" value={certs.total || 0} accent="bg-navy" />
+        <StatCard label="Active certificates" value={certs.active || 0} accent="bg-green-700" />
+        <StatCard label="Revoked" value={certs.revoked || 0} accent="bg-red-700" />
+        <StatCard label="Issued this month" value={certs.issuedThisMonth || 0} accent="bg-gold" />
       </div>
+      {(certs.rows || []).length ? (
+        <div className="mt-4 rounded-2xl border border-navy/10 bg-white p-5">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="font-heading text-lg font-bold text-navy">Recent certificates</h2>
+            <Link to={adminPath("certificates")} className="text-sm font-semibold text-gold">
+              Issue certificates →
+            </Link>
+          </div>
+          <ul className="mt-3 space-y-2 text-sm">
+            {certs.rows.slice(0, 5).map((row) => (
+              <li key={row.id || row.certificateNumber} className="flex flex-wrap justify-between gap-2">
+                <span className="font-semibold text-navy">{row.studentName}</span>
+                <span className="font-mono text-muted">{row.certificateNumber}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       <div className="mt-8 grid gap-5 lg:grid-cols-5">
         <div className="rounded-2xl border border-navy/10 bg-white p-6 lg:col-span-1">

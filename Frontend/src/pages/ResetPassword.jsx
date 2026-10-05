@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import AuthShell, { authInputClass } from "../components/auth/AuthShell";
+import AuthShell from "../components/auth/AuthShell";
+import PasswordField from "../components/auth/PasswordField";
 import PageLoader from "../components/ui/PageLoader";
 import { resetPassword } from "../services/userAuth";
 
@@ -46,20 +47,8 @@ export default function ResetPassword() {
         </p>
       ) : (
         <form onSubmit={onSubmit} className="space-y-3">
-          <label className="block">
-            <span className="mb-1 block text-sm font-semibold text-navy">New password</span>
-            <input type="password" className={authInputClass} value={password} onChange={(e) => setPassword(e.target.value)} required />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-sm font-semibold text-navy">Confirm new password</span>
-            <input
-              type="password"
-              className={authInputClass}
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-            />
-          </label>
+          <PasswordField label="New password" value={password} onChange={setPassword} autoComplete="new-password" />
+          <PasswordField label="Confirm new password" value={confirmPassword} onChange={setConfirmPassword} autoComplete="new-password" />
           <button type="submit" disabled={busy} className="w-full rounded-full bg-navy px-5 py-3 text-sm font-semibold text-white disabled:opacity-50">
             Update password
           </button>

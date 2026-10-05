@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { Outlet, useLocation, useSearchParams } from "react-router-dom";
 import { useApplicationWindow } from "../../context/ApplicationWindowContext";
 import BookingModal from "../booking/BookingModal";
+import BrandTheme from "../cms/BrandTheme";
 import ApplicationDeadlineBar from "./ApplicationDeadlineBar";
+import AnnouncementBar from "./AnnouncementBar";
 import Footer from "./Footer";
 import Navbar from "./Navbar";
 import SearchModal from "./SearchModal";
@@ -34,7 +36,9 @@ export default function Layout() {
       }`}
     >
       {applyMode ? null : <TopBar />}
+      {applyMode ? null : <AnnouncementBar />}
       {applyMode ? null : <Navbar onSearch={() => setSearchOpen(true)} onBook={openBooking} />}
+      <BrandTheme />
       <main className="w-full flex-1">
         <Outlet context={{ onBook: openBooking }} />
       </main>

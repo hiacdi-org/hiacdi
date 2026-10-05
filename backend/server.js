@@ -7,6 +7,7 @@ import { existsSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 import { connectDb } from "./config/db.js";
+import { isCloudinaryConfigured } from "./config/cloudinary.js";
 import courseRoutes from "./routes/courses.js";
 import inquiryRoutes from "./routes/inquiries.js";
 import siteRoutes from "./routes/site.js";
@@ -23,6 +24,11 @@ import visitRoutes from "./routes/visits.js";
 import chatRoutes from "./routes/chat.js";
 import databaseRoutes from "./routes/database.js";
 import intakeRoutes from "./routes/intakes.js";
+import certificateRoutes from "./routes/certificates.js";
+import programmeRoutes from "./routes/programmes.js";
+import uploadRoutes from "./routes/uploads.js";
+import contentRoutes from "./routes/content.js";
+import adminSiteRoutes from "./routes/adminSite.js";
 import { assertProductionConfig, frontendOrigin, isProduction, usesHttps } from "./utils/env.js";
 import { rateLimit } from "./utils/rateLimit.js";
 
@@ -95,7 +101,7 @@ app.use((req, res, next) => {
       "font-src 'self' https://fonts.gstatic.com data:",
       "img-src 'self' data: blob: https:",
       "connect-src 'self' https://accounts.google.com https://oauth2.googleapis.com",
-      "frame-src https://accounts.google.com https://apis.google.com",
+      "frame-src https://accounts.google.com https://apis.google.com https://maps.google.com https://www.google.com",
     ].join("; ")
   );
   if (usesHttps()) {
@@ -113,7 +119,21 @@ app.use(
     credentials: true,
   })
 );
-app.use(express.json({ limit: "700kb" }));
+app.use(express.json({ limit: "2mb" }));
+app.use((req, _res, next) => {
+  const strip = (value) => {
+    if (!value || typeof value !== "object") return value;
+    if (Array.isArray(value)) return value.map(strip);
+    const out = {};
+    for (const [key, nested] of Object.entries(value)) {
+      if (key.startsWith("$") || key.includes(".")) continue;
+      out[key] = strip(nested);
+    }
+    return out;
+  };
+  if (req.body) req.body = strip(req.body);
+  next();
+});
 
 app.use("/api", (req, res, next) => {
   const path = req.path || "";
@@ -124,7 +144,8 @@ app.use("/api", (req, res, next) => {
       path === "/courses" ||
       path === "/courses/catalog" ||
       path === "/bookings/config" ||
-      path === "/intakes");
+      path === "/intakes" ||
+      path.startsWith("/site/"));
   res.setHeader("Cache-Control", publicCache ? "public, max-age=60" : "no-store");
   next();
 });
@@ -132,7 +153,7 @@ app.use("/api", (req, res, next) => {
 app.use("/api", rateLimit({ max: 400, windowMs: 15 * 60 * 1000, message: "Too many requests. Please wait a moment." }));
 
 app.get("/api/health", (_req, res) => {
-  res.json({ ok: true, name: "HIACDI Tech Hub API" });
+  res.json({ ok: true, name: "HIACDI API" });
 });
 
 app.get("/api/public/email-logo.png", (_req, res) => {
@@ -159,6 +180,11 @@ app.use("/api/visits", visitRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/database", databaseRoutes);
 app.use("/api/intakes", intakeRoutes);
+app.use("/api/certificates", certificateRoutes);
+app.use("/api/programmes", programmeRoutes);
+app.use("/api/uploads", uploadRoutes);
+app.use("/api/content", contentRoutes);
+app.use("/api/admin", adminSiteRoutes);
 
 if (existsSync(join(frontendDist, "index.html"))) {
   app.use(
@@ -195,12 +221,17 @@ app.use((err, _req, res, _next) => {
 
 app.listen(port, "0.0.0.0", () => {
   console.log(`HIACDI backend running on http://localhost:${port}`);
+  console.log(
+    isCloudinaryConfigured()
+      ? "Cloudinary uploads: ready"
+      : "Cloudinary uploads: not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET in backend/.env."
+  );
   connectDb().catch((error) => {
+    console.error("MongoDB connection failed:", error.message);
     if (isProduction()) {
-      console.error("MongoDB connection failed:", error.message);
       console.error("MongoDB is required in production. Set MONGO_URI and ALLOW_REMOTE_MONGO=true for Atlas.");
       process.exit(1);
     }
-    console.log("MongoDB not detected. Using local file storage, which is normal for development.");
+    console.log("Using local file storage until MongoDB is available.");
   });
 });

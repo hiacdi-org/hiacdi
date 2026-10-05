@@ -29,20 +29,37 @@ const modeIcons = {
   ),
 };
 
-export default function Hero({ onBook }) {
+export default function Hero({ onBook, section, slide, settings }) {
   const site = useSite();
   const hero = site.hero || {};
   const modes = site.learningModes || [];
+  const title = section?.title || slide?.heading || hero.title;
+  const text = section?.subtitle || slide?.subheading || hero.text;
+  const image = slide?.image?.url || section?.image?.url || "/home/hero-background.jpg";
+  const logoSrc = settings?.logo?.url || hero.logoSrc;
+  const buttons = section?.buttons?.length
+    ? section.buttons
+    : [
+        { label: "Our Programmes", url: "/programmes", style: "primary" },
+        { label: "Verify a certificate", url: "/verify", style: "secondary" },
+        { label: "Get involved", url: "/get-involved", style: "navy" },
+      ];
+
+  function btnClass(style) {
+    if (style === "secondary") return "rounded-full border-2 border-navy px-6 py-3 text-sm font-semibold text-navy hover:bg-navy hover:text-white sm:px-8 sm:text-base";
+    if (style === "navy") return "rounded-full bg-navy px-6 py-3 text-sm font-semibold text-white hover:bg-navy-mid sm:px-8 sm:text-base";
+    return "rounded-full bg-gold px-6 py-3 text-sm font-semibold text-white hover:bg-gold-dark sm:px-8 sm:text-base";
+  }
 
   return (
     <section className="relative w-full overflow-hidden bg-gradient-to-b from-[#f6edd2] via-white to-white">
       <img
-        src="/home/hero-background.jpg"
+        src={image}
         alt=""
         className="pointer-events-none absolute inset-0 h-full w-full object-cover object-[center_30%] opacity-[0.32]"
       />
       <img
-        src={hero.logoSrc}
+        src={logoSrc}
         alt=""
         className="pointer-events-none absolute inset-0 m-auto h-[70%] w-[70%] max-w-lg object-contain opacity-[0.08] sm:w-[60%] sm:max-w-3xl"
       />
@@ -55,8 +72,6 @@ export default function Hero({ onBook }) {
               { text: " Community ", className: "" },
               { text: "Development", className: "text-navy" },
               { text: " Initiative ", className: "" },
-              { text: "Tech", className: "text-navy" },
-              { text: " Hub", className: "" },
             ]}
             typingSpeed={100}
             deletingSpeed={50}
@@ -65,23 +80,29 @@ export default function Hero({ onBook }) {
           />
         </p>
         <h1 className="mt-2 font-heading text-[1.7rem] leading-tight font-bold text-navy sm:text-4xl md:text-5xl">
-          {hero.title}
+          {title}
         </h1>
         <p className="mx-auto mt-4 max-w-3xl text-sm leading-7 text-navy/80 sm:mt-6 sm:text-base sm:leading-8 md:text-lg">
-          {hero.text}
+          {text}
         </p>
         <div className="mt-6 flex flex-col items-stretch justify-center gap-3 sm:mt-8 sm:flex-row sm:items-center sm:gap-4">
-          <Link
-            to="/courses"
-            className="rounded-full bg-gold px-6 py-3 text-sm font-semibold text-white hover:bg-gold-dark sm:px-8 sm:text-base"
-          >
-            Explore Our Courses
+          {buttons.map((button) =>
+            button.url?.startsWith("http") ? (
+              <a key={button.label} href={button.url} target={button.openInNewTab ? "_blank" : undefined} rel="noopener noreferrer" className={btnClass(button.style)}>
+                {button.label}
+              </a>
+            ) : (
+              <Link key={button.label} to={button.url || "/"} className={btnClass(button.style)}>
+                {button.label}
+              </Link>
+            )
+          )}
+        </div>
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-sm">
+          <Link to="/courses" className="font-semibold text-navy/70 hover:text-gold">
+            Education courses
           </Link>
-          <button
-            type="button"
-            onClick={onBook}
-            className="rounded-full border-2 border-navy px-6 py-3 text-sm font-semibold text-navy hover:bg-navy hover:text-white sm:px-8 sm:text-base"
-          >
+          <button type="button" onClick={onBook} className="font-semibold text-navy/70 hover:text-gold">
             Book for Calls
           </button>
         </div>

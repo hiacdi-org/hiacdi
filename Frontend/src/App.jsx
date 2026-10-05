@@ -4,7 +4,10 @@ import { ADMIN_BASE } from "./adminPath";
 import Layout from "./components/layout/Layout";
 import PageLoader from "./components/ui/PageLoader";
 import { ApplicationWindowProvider } from "./context/ApplicationWindowContext";
+import { UserAuthProvider } from "./context/UserAuthContext";
 import About from "./pages/About";
+import AccountDashboard from "./pages/AccountDashboard";
+import AuthCallback from "./pages/AuthCallback";
 import Careers from "./pages/Careers";
 import Contact from "./pages/Contact";
 import Faqs from "./pages/Faqs";
@@ -14,9 +17,17 @@ import Corporate from "./pages/Corporate";
 import CourseCategory from "./pages/CourseCategory";
 import CourseProgram from "./pages/CourseProgram";
 import Courses from "./pages/Courses";
+import ForgotPassword from "./pages/ForgotPassword";
 import Home from "./pages/Home";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import ResetPassword from "./pages/ResetPassword";
 import Verify from "./pages/Verify";
 import VerifyConfirm from "./pages/VerifyConfirm";
+import Programmes from "./pages/Programmes";
+import ProgrammeGroup from "./pages/ProgrammeGroup";
+import ProgrammeItem from "./pages/ProgrammeItem";
+import HubLanding, { HubArticle } from "./pages/Hub";
 
 const AdminLayout = lazy(() => import("./components/admin/AdminLayout"));
 const AdminLogin = lazy(() => import("./pages/AdminLogin"));
@@ -31,6 +42,10 @@ const AdminVisitors = lazy(() => import("./pages/AdminVisitors"));
 const AdminIntakes = lazy(() => import("./pages/AdminIntakes"));
 const AdminDatabase = lazy(() => import("./pages/AdminDatabase"));
 const AdminStaffTokens = lazy(() => import("./pages/AdminStaffTokens"));
+const AdminCertificates = lazy(() => import("./pages/AdminCertificates"));
+const AdminProgrammes = lazy(() => import("./pages/AdminProgrammes"));
+const AdminContent = lazy(() => import("./pages/AdminContent"));
+const AdminSite = lazy(() => import("./pages/AdminSite"));
 
 function adminElement(element) {
   return (
@@ -127,6 +142,7 @@ export default function App() {
 
   return (
     <ApplicationWindowProvider>
+      <UserAuthProvider>
       <BrowserRouter>
         <Routes>
           <Route element={<Layout />}>
@@ -143,50 +159,49 @@ export default function App() {
 
             <Route path="/apply" element={<Apply />} />
 
-            <Route
-              path="/register"
-              element={<Navigate to="/apply" replace />}
-            />
-            <Route
-              path="/login"
-              element={<Navigate to="/apply" replace />}
-            />
-            <Route
-              path="/forgot-password"
-              element={<Navigate to="/apply" replace />}
-            />
-            <Route
-              path="/reset-password"
-              element={<Navigate to="/apply" replace />}
-            />
-            <Route
-              path="/auth/callback"
-              element={<Navigate to="/apply" replace />}
-            />
-            <Route
-              path="/account"
-              element={<Navigate to="/apply" replace />}
-            />
+            <Route path="/register" element={<Register />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
+            <Route path="/account" element={<AccountDashboard />} />
 
             <Route path="/verify" element={<Verify />} />
             <Route
               path="/verify/confirm/:token"
               element={<VerifyConfirm />}
             />
-            <Route
-              path="/verify/:certificateId"
-              element={<Verify />}
-            />
+            <Route path="/verify/:certificateId" element={<Verify />} />
+
+            <Route path="/programmes" element={<Programmes />} />
+            <Route path="/programmes/:groupSlug" element={<ProgrammeGroup />} />
+            <Route path="/programmes/:groupSlug/:itemSlug" element={<ProgrammeItem />} />
+
+            <Route path="/projects" element={<HubLanding hub="projects" />} />
+            <Route path="/projects/:slug" element={<HubArticle hub="projects" />} />
+            <Route path="/news" element={<HubLanding hub="news" />} />
+            <Route path="/news/:slug" element={<HubArticle hub="news" />} />
+            <Route path="/resources" element={<HubLanding hub="resources" />} />
+            <Route path="/resources/:slug" element={<HubArticle hub="resources" />} />
+            <Route path="/get-involved" element={<HubLanding hub="get-involved" />} />
+            <Route path="/get-involved/:slug" element={<HubArticle hub="get-involved" />} />
 
             <Route path="/contact" element={<Contact />} />
             <Route path="/about" element={<About />} />
             <Route path="/about/careers" element={<Careers />} />
             <Route path="/about/faqs" element={<Faqs />} />
+            <Route path="/about/:slug" element={<HubArticle hub="about" />} />
             <Route path="/corporate" element={<Corporate />} />
             <Route path="/community" element={<Community />} />
 
             <Route path="*" element={<NotFound />} />
           </Route>
+
+          <Route
+            path="/admin/login"
+            element={<Navigate to={`${ADMIN_BASE}/login`} replace />}
+          />
+          <Route path="/admin" element={<Navigate to={ADMIN_BASE} replace />} />
 
           <Route
             path={`${ADMIN_BASE}/login`}
@@ -208,9 +223,14 @@ export default function App() {
             <Route path="intakes" element={<AdminIntakes />} />
             <Route path="database" element={<AdminDatabase />} />
             <Route path="staff-tokens" element={<AdminStaffTokens />} />
+            <Route path="certificates" element={<AdminCertificates />} />
+            <Route path="programmes" element={<AdminProgrammes />} />
+            <Route path="content" element={<AdminContent />} />
+            <Route path="site" element={<AdminSite />} />
           </Route>
         </Routes>
       </BrowserRouter>
+      </UserAuthProvider>
     </ApplicationWindowProvider>
   );
 }
@@ -223,7 +243,7 @@ function NotFound() {
       </h1>
 
       <p className="mt-3 text-muted">
-        That address does not exist on HIACDI Tech Hub.
+        That address does not exist on HIACDI.
       </p>
 
       <div className="mt-6 flex flex-wrap justify-center gap-4">

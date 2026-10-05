@@ -1,16 +1,11 @@
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
-import { isProduction } from "./env.js";
 import { ADMIN_COOKIE, USER_COOKIE, clearAuthCookie, readCookie } from "./cookies.js";
 import { revokeToken, signToken, verifyToken } from "./sessions.js";
 
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "HIACDI Tech Hub";
+const ADMIN_EMAIL = String(process.env.ADMIN_EMAIL || "").trim().toLowerCase();
 const rawAdminPassword = String(process.env.ADMIN_PASSWORD || "").trim();
-const ADMIN_PASSWORD_HASH = rawAdminPassword
-  ? bcrypt.hashSync(rawAdminPassword, 12)
-  : isProduction()
-    ? ""
-    : bcrypt.hashSync("HassAziHUb@08582@008", 12);
+const ADMIN_PASSWORD_HASH = rawAdminPassword ? bcrypt.hashSync(rawAdminPassword, 12) : "";
 
 function timingEqual(left, right) {
   const a = Buffer.from(String(left));
@@ -35,16 +30,29 @@ export function extractUserToken(req) {
   return bearerToken(req) || readCookie(req, USER_COOKIE);
 }
 
-export async function checkCredentials(username, password) {
-  if (typeof username !== "string" || typeof password !== "string") return false;
-  if (!ADMIN_PASSWORD_HASH) return false;
-  const userOk = timingEqual(username.trim(), ADMIN_USERNAME);
-  const passOk = await bcrypt.compare(password, ADMIN_PASSWORD_HASH);
-  return userOk && passOk;
+export async function checkCredentials(email, password) {
+  if (typeof email !== "string" || typeof password !== "string") return false;
+  const entered = email.trim().toLowerCase();
+  if (!entered || !password || !entered.includes("@")) return false;
+  if (ADMIN_EMAIL && ADMIN_PASSWORD_HASH) {
+    const emailOk = timingEqual(entered, ADMIN_EMAIL);
+    const passOk = await bcrypt.compare(password, ADMIN_PASSWORD_HASH);
+    if (emailOk && passOk) return true;
+  }
+  try {
+    const mongoose = (await import("mongoose")).default;
+    if (mongoose.connection.readyState !== 1) return false;
+    const Admin = (await import("../models/Admin.js")).default;
+    const admin = await Admin.findOne({ email: entered });
+    if (!admin?.passwordHash) return false;
+    return bcrypt.compare(password, admin.passwordHash);
+  } catch {
+    return false;
+  }
 }
 
-export async function login(username, password) {
-  if (!(await checkCredentials(username, password))) return null;
+export async function login(email, password) {
+  if (!(await checkCredentials(email, password))) return null;
   return signToken("admin", "staff");
 }
 

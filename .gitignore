@@ -31,6 +31,9 @@ backend/data/visitors-store.json
 backend/data/intakes-store.json
 backend/data/admin-login-lock.json
 backend/data/admin-unlock-tokens.json
+backend/data/certificates-store.json
+backend/data/issued-courses-store.json
+backend/data/cms-store.json
 
 # Logs
 *.log

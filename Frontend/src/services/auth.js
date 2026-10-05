@@ -39,20 +39,45 @@ export function getToken() {
   return liveToken;
 }
 
+const PREVIEW_KEY = "hiacdiCmsPreview";
+
+export function grantCmsPreview(minutes = 15) {
+  const token = getToken();
+  if (!token) return;
+  try {
+    localStorage.setItem(PREVIEW_KEY, JSON.stringify({ token, until: Date.now() + minutes * 60 * 1000 }));
+  } catch {
+    // ignore storage access errors
+  }
+}
+
+export function peekCmsPreviewToken() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(PREVIEW_KEY) || "null");
+    if (!raw?.token || Date.now() > Number(raw.until || 0)) {
+      localStorage.removeItem(PREVIEW_KEY);
+      return null;
+    }
+    return raw.token;
+  } catch {
+    return null;
+  }
+}
+
 export function isAuthenticated() {
   return Boolean(getToken());
 }
 
-export async function adminLogin(username, password) {
+export async function adminLogin(email, password) {
   const response = await fetch(apiUrl("/api/auth/login"), {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ email, password }),
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const error = new Error(data.message || "Incorrect username or password.");
+    const error = new Error(data.message || "Incorrect email or password.");
     error.locked = Boolean(data.locked);
     throw error;
   }

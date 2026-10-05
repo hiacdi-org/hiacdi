@@ -34,7 +34,7 @@ let cachedSecret = "";
 
 export function sessionSecret() {
   if (cachedSecret) return cachedSecret;
-  const explicit = String(process.env.SESSION_SECRET || "").trim();
+  const explicit = String(process.env.SESSION_SECRET || process.env.JWT_SECRET || "").trim();
   if (explicit.length >= 16) {
     cachedSecret = explicit;
     return cachedSecret;

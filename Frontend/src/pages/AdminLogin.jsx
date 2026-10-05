@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { adminPath } from "../adminPath";
+import PasswordField from "../components/auth/PasswordField";
 import PageLoader from "../components/ui/PageLoader";
 import { adminLogin, clearSession, fetchAdminLockStatus, unlockAdminWithToken } from "../services/auth";
 
@@ -9,7 +10,7 @@ const inputClass =
 
 export default function AdminLogin() {
   const navigate = useNavigate();
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [unlockToken, setUnlockToken] = useState("");
   const [error, setError] = useState("");
@@ -31,11 +32,11 @@ export default function AdminLogin() {
     setError("");
     setNotice("");
     try {
-      await adminLogin(username.trim(), password);
+      await adminLogin(email.trim(), password);
       navigate(adminPath(), { replace: true });
     } catch (err) {
       if (err.locked) setLocked(true);
-      setError(err.message || "Incorrect username or password.");
+      setError(err.message || "Incorrect email or password.");
     } finally {
       setBusy(false);
     }
@@ -65,11 +66,11 @@ export default function AdminLogin() {
         <div className="flex flex-col items-center text-center">
           <img
             src="/brand/logo-mark.png?v=3"
-            alt="HIACDI Tech Hub"
+            alt="HIACDI"
             className="h-16 w-auto object-contain"
           />
           <p className="font-heading mt-3 text-lg font-bold text-navy">
-            HIACDI <span className="text-gold">TECH</span> HUB
+            HIACDI
           </p>
           <p className="mt-1 text-sm font-semibold uppercase tracking-[0.12em] text-gold">
             Admin Access
@@ -77,28 +78,24 @@ export default function AdminLogin() {
         </div>
         <form onSubmit={onSubmit} autoComplete="off" className="mt-8 space-y-4">
           <label className="block">
-            <span className="mb-1 block text-sm font-semibold text-navy">Username</span>
+            <span className="mb-1 block text-sm font-semibold text-navy">Email</span>
             <input
+              type="email"
               className={inputClass}
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
-              autoComplete="off"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              autoComplete="email"
               disabled={locked}
               required
             />
           </label>
-          <label className="block">
-            <span className="mb-1 block text-sm font-semibold text-navy">Password</span>
-            <input
-              type="password"
-              className={inputClass}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              autoComplete="off"
-              disabled={locked}
-              required
-            />
-          </label>
+          <PasswordField
+            value={password}
+            onChange={setPassword}
+            autoComplete="off"
+            className={inputClass}
+            disabled={locked}
+          />
           <button
             type="submit"
             disabled={busy || locked}
@@ -137,7 +134,7 @@ export default function AdminLogin() {
         {notice ? <p className="mt-4 rounded-md bg-green-50 px-4 py-3 text-sm font-semibold text-green-800">{notice}</p> : null}
         {error ? <p className="mt-4 rounded-md bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</p> : null}
         <p className="mt-6 text-center text-xs text-muted">
-          Restricted access. HIACDI Tech Hub staff only.
+          Restricted access. HIACDI staff only.
         </p>
       </div>
     </section>

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import AuthShell, { authInputClass } from "../components/auth/AuthShell";
 import GoogleButton from "../components/auth/GoogleButton";
+import PasswordField from "../components/auth/PasswordField";
 import PageLoader from "../components/ui/PageLoader";
 import { useUserAuth } from "../context/UserAuthContext";
 
@@ -46,17 +47,7 @@ export default function Login() {
           <span className="mb-1 block text-sm font-semibold text-navy">Email</span>
           <input type="email" className={authInputClass} value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" required />
         </label>
-        <label className="block">
-          <span className="mb-1 block text-sm font-semibold text-navy">Password</span>
-          <input
-            type="password"
-            className={authInputClass}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
-            required
-          />
-        </label>
+        <PasswordField value={password} onChange={setPassword} autoComplete="current-password" />
         <div className="text-right">
           <Link to={`/forgot-password?next=${encodeURIComponent(next)}`} className="text-sm font-semibold text-gold">
             Forgot Password?

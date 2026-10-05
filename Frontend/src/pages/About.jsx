@@ -2,11 +2,102 @@ import { useRef, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import PageHero from "../components/layout/PageHero";
 import ApplyCta from "../components/ui/ApplyCta";
+import RichHtml from "../components/cms/RichHtml";
 import { about } from "../data/about";
 import { site } from "../data/site";
+import { useCmsPage, useCmsTeam } from "../hooks/useCms";
+import { optimizedImage } from "../utils/media";
 
 export default function About() {
   const { onBook } = useOutletContext() || {};
+  const page = useCmsPage("about");
+  const team = useCmsTeam();
+  const sections = page?.sections || [];
+  if (!sections.length) return <FallbackAbout onBook={onBook} />;
+  const hero = sections.find((row) => row.key === "who-we-are") || sections[0];
+  const vision = sections.find((row) => row.key === "vision");
+  const mission = sections.find((row) => row.key === "mission");
+  const rest = sections.filter((row) => !["who-we-are", "vision", "mission"].includes(row.key));
+  const people = team?.length
+    ? team.map((person) => ({
+        name: person.name,
+        title: person.role,
+        role: "",
+        image: person.photo?.url,
+        bio: person.bio,
+      }))
+    : about.team;
+  return (
+    <div>
+      <PageHero eyebrow={hero.subtitle || "About HIACDI"} title={hero.title || about.title}>
+        <RichHtml html={hero.body} className="mt-4 max-w-3xl text-sm leading-7 text-white/75" />
+      </PageHero>
+      <section className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-20">
+        <p className="text-sm font-semibold text-gold">What we stand for</p>
+        <h2 className="font-heading mt-2 max-w-3xl text-2xl font-bold text-navy sm:text-4xl">Our Vision and Mission</h2>
+        <div className="mt-10 grid gap-5 md:grid-cols-2">
+          <article className="relative overflow-hidden rounded-2xl border border-navy/10 bg-white p-7 shadow-[0_12px_40px_rgba(10,46,109,0.06)]">
+            <span className="absolute top-0 left-0 h-1 w-full bg-gold" />
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gold">Our Vision</p>
+            {vision?.body ? (
+              <RichHtml html={vision.body} className="mt-3 text-sm font-semibold leading-7 text-navy" />
+            ) : (
+              <p className="mt-3 text-sm font-semibold leading-7 text-navy">{about.vision}</p>
+            )}
+          </article>
+          <article className="relative overflow-hidden rounded-2xl border border-navy/10 bg-white p-7 shadow-[0_12px_40px_rgba(10,46,109,0.06)]">
+            <span className="absolute top-0 left-0 h-1 w-full bg-gold" />
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gold">Our Mission</p>
+            {mission?.body ? (
+              <RichHtml html={mission.body} className="mt-3 text-sm leading-7 text-muted" />
+            ) : (
+              <p className="mt-3 text-sm leading-7 text-muted">{about.mission}</p>
+            )}
+          </article>
+        </div>
+      </section>
+      <section className="mx-auto max-w-6xl px-4 pb-14 sm:px-6 sm:pb-20">
+        <div className="grid gap-5 md:grid-cols-2">
+          {rest.map((section) => (
+            <article key={section.id || section.key} className="relative overflow-hidden rounded-2xl border border-navy/10 bg-white p-7 shadow-[0_12px_40px_rgba(10,46,109,0.06)]">
+              <span className="absolute top-0 left-0 h-1 w-full bg-gold" />
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gold">{section.subtitle || section.key}</p>
+              <h2 className="font-heading mt-3 text-xl font-bold text-navy">{section.title}</h2>
+              <RichHtml html={section.body} className="mt-3 text-sm leading-7 text-muted" />
+              {section.image?.url ? (
+                <img src={optimizedImage(section.image.url, 800)} alt="" className="mt-4 w-full rounded-xl object-cover" loading="lazy" />
+              ) : null}
+            </article>
+          ))}
+        </div>
+      </section>
+      <section className="bg-[#f7f4ec] px-4 py-14 sm:px-6 sm:py-20">
+        <div className="mx-auto max-w-6xl">
+          <p className="text-sm font-semibold text-gold">Leadership and faculty</p>
+          <h2 className="font-heading mt-2 text-2xl font-bold text-navy sm:text-4xl">The people who teach and hold the standard</h2>
+          <div className="mt-10 grid grid-cols-1 items-stretch gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {people.map((person) => (
+              <article key={person.name} className="flex h-full flex-col overflow-hidden rounded-2xl bg-white shadow-[0_12px_40px_rgba(10,46,109,0.08)]">
+                {person.image ? (
+                  <div className="aspect-[4/5] shrink-0 overflow-hidden bg-[#eef2f7]">
+                    <img src={optimizedImage(person.image, 600) || person.image} alt={person.name} loading="lazy" className="h-full w-full object-cover object-[center_12%]" />
+                  </div>
+                ) : null}
+                <div className="flex flex-1 flex-col border-t border-gold/40 p-5">
+                  <h3 className="font-heading text-lg font-bold leading-6 text-navy">{person.name}</h3>
+                  <p className="mt-1 text-sm font-semibold leading-5 text-gold">{person.title}</p>
+                  <RichHtml html={person.bio} className="mt-3 flex-1 text-sm leading-6 text-muted" />
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function FallbackAbout({ onBook }) {
 
   return (
     <div>
@@ -20,17 +111,17 @@ export default function About() {
       <section className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-20">
         <p className="text-sm font-semibold text-gold">What we stand for</p>
         <h2 className="font-heading mt-2 max-w-3xl text-2xl font-bold text-navy sm:text-4xl">
-          Vision and Mission
+          Our Vision and Mission
         </h2>
         <div className="mt-10 grid gap-5 md:grid-cols-2">
           <article className="relative overflow-hidden rounded-2xl border border-navy/10 bg-white p-7 shadow-[0_12px_40px_rgba(10,46,109,0.06)]">
             <span className="absolute top-0 left-0 h-1 w-full bg-gold" />
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gold">Vision</p>
-            <p className="mt-3 text-sm leading-7 text-muted">{about.vision}</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gold">Our Vision</p>
+            <p className="mt-3 text-sm font-semibold leading-7 text-navy">{about.vision}</p>
           </article>
           <article className="relative overflow-hidden rounded-2xl border border-navy/10 bg-white p-7 shadow-[0_12px_40px_rgba(10,46,109,0.06)]">
             <span className="absolute top-0 left-0 h-1 w-full bg-gold" />
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gold">Mission</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gold">Our Mission</p>
             <p className="mt-3 text-sm leading-7 text-muted">{about.mission}</p>
           </article>
         </div>

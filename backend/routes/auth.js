@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { attachAdminSession, extractToken, login, logout, requireAdmin } from "../utils/auth.js";
+import { rateLimit } from "../utils/rateLimit.js";
 import { clearAdminLoginLock, readAdminLoginLock, recordAdminLoginFailure } from "../utils/adminLoginLock.js";
 import {
   consumeUnlockToken,
@@ -11,13 +12,14 @@ import {
 const router = Router();
 const LOCKED_MESSAGE = "Sign-in rejected. Too many wrong passwords. Ask a senior staff member for an unlock token.";
 
-router.post("/login", async (req, res) => {
+router.post("/login", rateLimit({ max: 10, windowMs: 15 * 60 * 1000, message: "Too many sign-in attempts. Please wait." }), async (req, res) => {
   if (readAdminLoginLock().locked) {
     return res.status(403).json({ locked: true, message: LOCKED_MESSAGE });
   }
 
   const body = req.body || {};
-  const result = await login(body.username, body.password);
+  const email = String(body.email || body.username || "").trim();
+  const result = await login(email, body.password);
   if (!result) {
     const failure = recordAdminLoginFailure();
     if (failure.locked) {
@@ -26,7 +28,7 @@ router.post("/login", async (req, res) => {
     const tries = failure.remaining;
     return res.status(401).json({
       remaining: tries,
-      message: `Incorrect username or password. ${tries} ${tries === 1 ? "try" : "tries"} left.`,
+      message: "Invalid credentials.",
     });
   }
 

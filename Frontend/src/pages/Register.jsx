@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import AuthShell, { authInputClass } from "../components/auth/AuthShell";
 import GoogleButton from "../components/auth/GoogleButton";
+import PasswordField from "../components/auth/PasswordField";
 import PageLoader from "../components/ui/PageLoader";
 import { useUserAuth } from "../context/UserAuthContext";
 
@@ -57,10 +58,9 @@ export default function Register() {
         <Field label="Full name" value={form.fullName} onChange={(v) => set("fullName", v)} autoComplete="name" />
         <Field label="Email address" type="email" value={form.email} onChange={(v) => set("email", v)} autoComplete="email" />
         <Field label="Phone number" value={form.phone} onChange={(v) => set("phone", v)} autoComplete="tel" />
-        <Field label="Password" type="password" value={form.password} onChange={(v) => set("password", v)} autoComplete="new-password" />
-        <Field
+        <PasswordField label="Password" value={form.password} onChange={(v) => set("password", v)} autoComplete="new-password" />
+        <PasswordField
           label="Confirm password"
-          type="password"
           value={form.confirmPassword}
           onChange={(v) => set("confirmPassword", v)}
           autoComplete="new-password"

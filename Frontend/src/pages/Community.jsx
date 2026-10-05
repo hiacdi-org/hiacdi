@@ -9,16 +9,16 @@ export default function Community() {
 
       <section className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-20">
         <p className="text-sm font-semibold text-gold">What we stand for</p>
-        <h2 className="font-heading mt-2 text-2xl font-bold text-navy sm:text-4xl">Vision and Mission</h2>
+        <h2 className="font-heading mt-2 text-2xl font-bold text-navy sm:text-4xl">Our Vision and Mission</h2>
         <div className="mt-10 grid gap-5 md:grid-cols-2">
           <article className="relative overflow-hidden rounded-2xl border border-navy/10 bg-white p-7 shadow-[0_12px_40px_rgba(10,46,109,0.06)]">
             <span className="absolute top-0 left-0 h-1 w-full bg-gold" />
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gold">Vision</p>
-            <p className="mt-3 text-sm leading-7 text-muted">{community.vision}</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gold">Our Vision</p>
+            <p className="mt-3 text-sm font-semibold leading-7 text-navy">{community.vision}</p>
           </article>
           <article className="relative overflow-hidden rounded-2xl border border-navy/10 bg-white p-7 shadow-[0_12px_40px_rgba(10,46,109,0.06)]">
             <span className="absolute top-0 left-0 h-1 w-full bg-gold" />
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gold">Mission</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gold">Our Mission</p>
             <p className="mt-3 text-sm leading-7 text-muted">{community.mission}</p>
           </article>
         </div>

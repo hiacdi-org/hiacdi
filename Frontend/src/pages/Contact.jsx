@@ -2,8 +2,10 @@ import { useState } from "react";
 import PageHero from "../components/layout/PageHero";
 import WhatsAppButton from "../components/layout/WhatsAppButton";
 import PageLoader from "../components/ui/PageLoader";
-import { site } from "../data/site";
+import { site as fallbackSite } from "../data/site";
 import { submitContact } from "../services/api";
+import { useCmsPage, usePublicSite } from "../hooks/useCms";
+import RichHtml from "../components/cms/RichHtml";
 
 const inputClass =
   "w-full rounded-md border border-navy/15 px-4 py-3 text-ink outline-none focus:border-gold";
@@ -11,6 +13,9 @@ const inputClass =
 const emptyForm = { fullName: "", email: "", phone: "", subject: "", message: "" };
 
 export default function Contact() {
+  const site = usePublicSite();
+  const page = useCmsPage("contact");
+  const intro = page?.sections?.[0];
   const [form, setForm] = useState(emptyForm);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -50,10 +55,18 @@ export default function Contact() {
   return (
     <div>
       <PageHero
-        eyebrow="Get in touch"
-        title="Contact HIACDI Tech Hub"
-        text="Questions about a course, a partnership, or anything else? Send us a message and the team will get back to you."
-      />
+        eyebrow={intro?.subtitle || "Get in touch"}
+        title={intro?.title || "Contact HIACDI"}
+        text=""
+      >
+        {intro?.body ? (
+          <RichHtml html={intro.body} className="mt-4 max-w-3xl text-sm text-white/80" />
+        ) : (
+          <p className="mt-4 max-w-3xl text-sm text-white/80">
+            Questions about a course, a partnership, or anything else? Send us a message and the team will get back to you.
+          </p>
+        )}
+      </PageHero>
 
       <section className="mx-auto grid max-w-5xl gap-10 px-4 py-14 sm:px-6 sm:py-20 lg:grid-cols-[1.1fr_1fr]">
         <div className="relative rounded-2xl border border-navy/10 bg-white p-5 shadow-sm sm:p-8">
@@ -156,18 +169,27 @@ export default function Contact() {
         <div className="text-sm leading-7 text-navy/80">
           <h2 className="font-heading text-xl font-bold text-navy">Other ways to reach us</h2>
           <p className="mt-4 flex gap-2">
-            <span className="text-gold">●</span> {site.location}
+            <span className="text-gold">●</span> {site.contact?.address || site.location || fallbackSite.location}
           </p>
           <p className="mt-2 flex gap-2">
             <span className="text-gold">●</span>
-            <a href={`mailto:${site.email}`} className="font-semibold text-gold hover:underline">
-              {site.email}
+            <a href={`mailto:${site.contact?.email || site.email || fallbackSite.email}`} className="font-semibold text-gold hover:underline">
+              {site.contact?.email || site.email || fallbackSite.email}
             </a>
           </p>
+          {site.contact?.phone ? (
+            <p className="mt-2 flex gap-2">
+              <span className="text-gold">●</span>
+              <a href={`tel:${site.contact.phone}`} className="font-semibold text-navy">
+                {site.contact.phone}
+              </a>
+            </p>
+          ) : null}
+          {site.contact?.officeHours ? <p className="mt-4 text-navy/70">{site.contact.officeHours}</p> : null}
           <p className="mt-6">
             <WhatsAppButton variant="inline" />
           </p>
-          <p className="mt-6 text-navy/70">{site.tagline}</p>
+          <p className="mt-6 text-navy/70">{site.tagline || fallbackSite.tagline}</p>
         </div>
       </section>
       <WhatsAppButton />

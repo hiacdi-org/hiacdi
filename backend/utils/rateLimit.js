@@ -38,6 +38,20 @@ export function clearRateLimit(req) {
   buckets.delete(bucketKey(req));
 }
 
+export function rateLimitStrict({ windowMs = 15 * 60 * 1000, max = 60, message } = {}) {
+  return (req, res, next) => {
+    const recent = recentStamps(`strict:${bucketKey(req)}`, windowMs);
+    if (recent.length >= max) {
+      return res.status(429).json({
+        message: message || "Too many attempts. Please wait a few minutes and try again.",
+      });
+    }
+    recent.push(Date.now());
+    buckets.set(`strict:${bucketKey(req)}`, recent);
+    next();
+  };
+}
+
 export function rateLimit({ windowMs = 15 * 60 * 1000, max = 8, message } = {}) {
   return (req, res, next) => {
     if (verifyToken(extractToken(req), "admin")) return next();
