@@ -28,6 +28,7 @@
       content="Humanity, Inclusion and Advancement Community Development Initiative"
     />
 
+    <!-- Search Engine Instructions -->
     <meta name="robots" content="index, follow" />
 
     <meta
@@ -35,12 +36,17 @@
       content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"
     />
 
+    <meta
+      name="bingbot"
+      content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1"
+    />
+
     <meta name="theme-color" content="#ffffff" />
 
-    <!-- Canonical -->
+    <!-- Canonical URL -->
     <link rel="canonical" href="https://hiacdi.org/" />
 
-    <!-- Favicon / Website Logo -->
+    <!-- Favicon / HIACDI Logo -->
     <link
       rel="icon"
       type="image/png"
@@ -116,25 +122,34 @@
       content="HIACDI - Humanity, Inclusion and Advancement Community Development Initiative logo"
     />
 
-    <!-- WebSite structured data -->
+    <!--
+      Google WebSite Structured Data
+      Helps Google understand that the preferred site name is HIACDI.
+    -->
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
         "@type": "WebSite",
         "name": "HIACDI",
-        "alternateName": "Humanity, Inclusion and Advancement Community Development Initiative",
+        "alternateName": [
+          "Humanity, Inclusion and Advancement Community Development Initiative",
+          "Humanity, Inclusion and Advancement"
+        ],
         "url": "https://hiacdi.org/"
       }
     </script>
 
-    <!-- Organization structured data -->
+    <!--
+      Google Organization Structured Data
+      Connects HIACDI's official name, website and logo.
+    -->
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
         "@type": "Organization",
         "name": "HIACDI",
-        "alternateName": "Humanity, Inclusion and Advancement Community Development Initiative",
         "legalName": "Humanity, Inclusion and Advancement Community Development Initiative",
+        "alternateName": "Humanity, Inclusion and Advancement Community Development Initiative",
         "url": "https://hiacdi.org/",
         "logo": {
           "@type": "ImageObject",
@@ -153,7 +168,10 @@
     </script>
 
     <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      rel="preconnect"
+      href="https://fonts.googleapis.com"
+    />
 
     <link
       rel="preconnect"
