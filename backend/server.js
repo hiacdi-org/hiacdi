@@ -6,8 +6,10 @@ import express from "express";
 import { existsSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
+
 import { connectDb } from "./config/db.js";
 import { isCloudinaryConfigured } from "./config/cloudinary.js";
+
 import courseRoutes from "./routes/courses.js";
 import inquiryRoutes from "./routes/inquiries.js";
 import siteRoutes from "./routes/site.js";
@@ -21,7 +23,6 @@ import userRoutes from "./routes/users.js";
 import enrollmentRoutes from "./routes/enrollments.js";
 import broadcastRoutes from "./routes/broadcast.js";
 import visitRoutes from "./routes/visits.js";
-import chatRoutes from "./routes/chat.js";
 import databaseRoutes from "./routes/database.js";
 import intakeRoutes from "./routes/intakes.js";
 import certificateRoutes from "./routes/certificates.js";
@@ -29,42 +30,74 @@ import programmeRoutes from "./routes/programmes.js";
 import uploadRoutes from "./routes/uploads.js";
 import contentRoutes from "./routes/content.js";
 import adminSiteRoutes from "./routes/adminSite.js";
-import { assertProductionConfig, frontendOrigin, isProduction, usesHttps } from "./utils/env.js";
+
+import {
+  assertProductionConfig,
+  frontendOrigin,
+  isProduction,
+  usesHttps,
+} from "./utils/env.js";
+
 import { rateLimit } from "./utils/rateLimit.js";
 
 dotenv.config();
 assertProductionConfig();
 
 const app = express();
+
 const port = process.env.PORT || 5000;
+
 const here = dirname(fileURLToPath(import.meta.url));
 const frontendDist = join(here, "../Frontend/dist");
 
 app.disable("x-powered-by");
+
 app.use(compression());
-  if (isProduction()) {
-    app.set("trust proxy", 1);
-  } else {
-    app.set("trust proxy", "loopback");
-  }
+
+if (isProduction()) {
+  app.set("trust proxy", 1);
+} else {
+  app.set("trust proxy", "loopback");
+}
 
 function isAllowedOrigin(origin) {
   if (!origin) return true;
+
   try {
     const url = new URL(origin);
     const host = url.hostname;
     const frontend = frontendOrigin();
-    if (frontend && origin === frontend) return true;
+
+    if (frontend && origin === frontend) {
+      return true;
+    }
+
     const extra = String(process.env.CORS_ORIGINS || "")
       .split(",")
       .map((item) => item.trim().replace(/\/$/, ""))
       .filter(Boolean);
-    if (extra.includes(origin)) return true;
-    if (!isProduction()) {
-      if (host === "localhost" || host === "127.0.0.1") return true;
-      if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(host)) return true;
-      if (/^192\.168\./.test(host) || /^10\./.test(host)) return true;
+
+    if (extra.includes(origin)) {
+      return true;
     }
+
+    if (!isProduction()) {
+      if (host === "localhost" || host === "127.0.0.1") {
+        return true;
+      }
+
+      if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(host)) {
+        return true;
+      }
+
+      if (
+        /^192\.168\./.test(host) ||
+        /^10\./.test(host)
+      ) {
+        return true;
+      }
+    }
+
     return false;
   } catch {
     return false;
@@ -72,22 +105,68 @@ function isAllowedOrigin(origin) {
 }
 
 app.use((req, res, next) => {
-  if (!usesHttps()) return next();
-  const proto = String(req.headers["x-forwarded-proto"] || req.protocol || "");
-  if (proto === "https" || req.secure) return next();
+  if (!usesHttps()) {
+    return next();
+  }
+
+  const proto = String(
+    req.headers["x-forwarded-proto"] ||
+      req.protocol ||
+      ""
+  );
+
+  if (proto === "https" || req.secure) {
+    return next();
+  }
+
   const host = req.headers.host;
-  if (!host) return next();
-  return res.redirect(301, `https://${host}${req.originalUrl}`);
+
+  if (!host) {
+    return next();
+  }
+
+  return res.redirect(
+    301,
+    `https://${host}${req.originalUrl}`
+  );
 });
 
 app.use((req, res, next) => {
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Frame-Options", "DENY");
-  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-  res.setHeader("X-DNS-Prefetch-Control", "off");
-  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
-  res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
-  res.setHeader("Cross-Origin-Resource-Policy", "same-site");
+  res.setHeader(
+    "X-Content-Type-Options",
+    "nosniff"
+  );
+
+  res.setHeader(
+    "X-Frame-Options",
+    "DENY"
+  );
+
+  res.setHeader(
+    "Referrer-Policy",
+    "strict-origin-when-cross-origin"
+  );
+
+  res.setHeader(
+    "X-DNS-Prefetch-Control",
+    "off"
+  );
+
+  res.setHeader(
+    "Permissions-Policy",
+    "camera=(), microphone=(), geolocation=()"
+  );
+
+  res.setHeader(
+    "Cross-Origin-Opener-Policy",
+    "same-origin-allow-popups"
+  );
+
+  res.setHeader(
+    "Cross-Origin-Resource-Policy",
+    "same-site"
+  );
+
   res.setHeader(
     "Content-Security-Policy",
     [
@@ -104,65 +183,135 @@ app.use((req, res, next) => {
       "frame-src https://accounts.google.com https://apis.google.com https://maps.google.com https://www.google.com",
     ].join("; ")
   );
+
   if (usesHttps()) {
-    res.setHeader("Strict-Transport-Security", "max-age=15552000; includeSubDomains");
+    res.setHeader(
+      "Strict-Transport-Security",
+      "max-age=15552000; includeSubDomains"
+    );
   }
+
   next();
 });
 
 app.use(
   cors({
     origin(origin, callback) {
-      if (isAllowedOrigin(origin)) return callback(null, true);
+      if (isAllowedOrigin(origin)) {
+        return callback(null, true);
+      }
+
       return callback(null, false);
     },
+
     credentials: true,
   })
 );
-app.use(express.json({ limit: "2mb" }));
+
+app.use(
+  express.json({
+    limit: "2mb",
+  })
+);
+
 app.use((req, _res, next) => {
   const strip = (value) => {
-    if (!value || typeof value !== "object") return value;
-    if (Array.isArray(value)) return value.map(strip);
+    if (!value || typeof value !== "object") {
+      return value;
+    }
+
+    if (Array.isArray(value)) {
+      return value.map(strip);
+    }
+
     const out = {};
+
     for (const [key, nested] of Object.entries(value)) {
-      if (key.startsWith("$") || key.includes(".")) continue;
+      if (key.startsWith("$") || key.includes(".")) {
+        continue;
+      }
+
       out[key] = strip(nested);
     }
+
     return out;
   };
-  if (req.body) req.body = strip(req.body);
+
+  if (req.body) {
+    req.body = strip(req.body);
+  }
+
   next();
 });
 
 app.use("/api", (req, res, next) => {
   const path = req.path || "";
+
   const publicCache =
     req.method === "GET" &&
-    (path === "/health" ||
+    (
+      path === "/health" ||
       path === "/site" ||
       path === "/courses" ||
       path === "/courses/catalog" ||
       path === "/bookings/config" ||
       path === "/intakes" ||
-      path.startsWith("/site/"));
-  res.setHeader("Cache-Control", publicCache ? "public, max-age=60" : "no-store");
+      path.startsWith("/site/")
+    );
+
+  res.setHeader(
+    "Cache-Control",
+    publicCache
+      ? "public, max-age=60"
+      : "no-store"
+  );
+
   next();
 });
 
-app.use("/api", rateLimit({ max: 400, windowMs: 15 * 60 * 1000, message: "Too many requests. Please wait a moment." }));
+app.use(
+  "/api",
+  rateLimit({
+    max: 400,
+    windowMs: 15 * 60 * 1000,
+    message:
+      "Too many requests. Please wait a moment.",
+  })
+);
 
 app.get("/api/health", (_req, res) => {
-  res.json({ ok: true, name: "HIACDI API" });
+  res.json({
+    ok: true,
+    name: "HIACDI API",
+  });
 });
 
-app.get("/api/public/email-logo.png", (_req, res) => {
-  const file = join(here, "assets/logo-email.png");
-  if (!existsSync(file)) return res.status(404).end();
-  res.setHeader("Cache-Control", "public, max-age=86400");
-  res.type("png");
-  res.sendFile(file);
-});
+app.get(
+  "/api/public/email-logo.png",
+  (_req, res) => {
+    const file = join(
+      here,
+      "assets/logo-email.png"
+    );
+
+    if (!existsSync(file)) {
+      return res.status(404).end();
+    }
+
+    res.setHeader(
+      "Cache-Control",
+      "public, max-age=86400"
+    );
+
+    res.type("png");
+
+    res.sendFile(file);
+  }
+);
+
+/* =========================
+   API ROUTES
+   ========================= */
 
 app.use("/api/courses", courseRoutes);
 app.use("/api/inquiries", inquiryRoutes);
@@ -177,7 +326,6 @@ app.use("/api/users", userRoutes);
 app.use("/api/enrollments", enrollmentRoutes);
 app.use("/api/broadcast", broadcastRoutes);
 app.use("/api/visits", visitRoutes);
-app.use("/api/chat", chatRoutes);
 app.use("/api/database", databaseRoutes);
 app.use("/api/intakes", intakeRoutes);
 app.use("/api/certificates", certificateRoutes);
@@ -186,52 +334,110 @@ app.use("/api/uploads", uploadRoutes);
 app.use("/api/content", contentRoutes);
 app.use("/api/admin", adminSiteRoutes);
 
+/* =========================
+   FRONTEND
+   ========================= */
+
 if (existsSync(join(frontendDist, "index.html"))) {
   app.use(
     express.static(frontendDist, {
       maxAge: isProduction() ? "7d" : 0,
       index: false,
       redirect: false,
+
       setHeaders(res, filePath) {
         if (filePath.endsWith(".html")) {
-          res.setHeader("Cache-Control", "no-cache");
+          res.setHeader(
+            "Cache-Control",
+            "no-cache"
+          );
+
           return;
         }
-        // Vite emits content-hashed files under /assets — safe to cache forever.
-        if (/[\\/]assets[\\/]/.test(filePath) && isProduction()) {
-          res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+
+        if (
+          /[\\/]assets[\\/]/.test(filePath) &&
+          isProduction()
+        ) {
+          res.setHeader(
+            "Cache-Control",
+            "public, max-age=31536000, immutable"
+          );
         }
       },
     })
   );
+
   app.use((req, res, next) => {
-    if (req.method !== "GET" && req.method !== "HEAD") return next();
-    if (req.path.startsWith("/api")) return next();
-    res.sendFile(join(frontendDist, "index.html"), (err) => (err ? next() : undefined));
+    if (
+      req.method !== "GET" &&
+      req.method !== "HEAD"
+    ) {
+      return next();
+    }
+
+    if (req.path.startsWith("/api")) {
+      return next();
+    }
+
+    res.sendFile(
+      join(frontendDist, "index.html"),
+      (err) => (err ? next() : undefined)
+    );
   });
 }
 
+/* =========================
+   ERROR HANDLER
+   ========================= */
+
 app.use((err, _req, res, _next) => {
   console.error(err?.message || err);
-  if (String(err?.message || "").includes("CORS")) {
-    return res.status(403).json({ message: "Request blocked." });
+
+  if (
+    String(err?.message || "").includes("CORS")
+  ) {
+    return res.status(403).json({
+      message: "Request blocked.",
+    });
   }
-  res.status(500).json({ message: "Something went wrong." });
+
+  res.status(500).json({
+    message: "Something went wrong.",
+  });
 });
 
+/* =========================
+   START SERVER
+   ========================= */
+
 app.listen(port, "0.0.0.0", () => {
-  console.log(`HIACDI backend running on http://localhost:${port}`);
+  console.log(
+    `HIACDI backend running on http://localhost:${port}`
+  );
+
   console.log(
     isCloudinaryConfigured()
       ? "Cloudinary uploads: ready"
       : "Cloudinary uploads: not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET in backend/.env."
   );
+
   connectDb().catch((error) => {
-    console.error("MongoDB connection failed:", error.message);
+    console.error(
+      "MongoDB connection failed:",
+      error.message
+    );
+
     if (isProduction()) {
-      console.error("MongoDB is required in production. Set MONGO_URI and ALLOW_REMOTE_MONGO=true for Atlas.");
+      console.error(
+        "MongoDB is required in production. Set MONGO_URI and ALLOW_REMOTE_MONGO=true for Atlas."
+      );
+
       process.exit(1);
     }
-    console.log("Using local file storage until MongoDB is available.");
+
+    console.log(
+      "Using local file storage until MongoDB is available."
+    );
   });
 });
