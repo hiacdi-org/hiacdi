@@ -48,7 +48,13 @@ router.post("/", requireAdmin, receiveFile, async (req, res) => {
     const resourceType = req.file.detectedType === "application/pdf" ? "raw" : "image";
     const uploaded = await new Promise((resolve, reject) => {
       const stream = getCloudinary().uploader.upload_stream(
-        { folder, resource_type: resourceType, use_filename: true, unique_filename: true },
+        {
+          folder,
+          resource_type: resourceType,
+          use_filename: true,
+          unique_filename: true,
+          ...(resourceType === "image" ? { transformation: [{ fetch_format: "auto", quality: "auto" }] } : {}),
+        },
         (error, result) => (error ? reject(error) : resolve(result))
       );
       Readable.from(req.file.buffer).pipe(stream);

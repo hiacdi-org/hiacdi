@@ -28,7 +28,7 @@ export default function AdminDashboard() {
     const [appsData, graduatesData, windowData, certsData] = await Promise.all([
       fetchApplications(),
       fetchGraduates(),
-      fetchApplicationWindow(),
+      fetchApplicationWindow().catch(() => null),
       fetchIssuedCertificates({ limit: 10 }).catch(() => ({ total: 0, active: 0, revoked: 0, issuedThisMonth: 0, rows: [] })),
     ]);
     setApps(appsData);

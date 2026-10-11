@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import FileUpload from "../components/ui/FileUpload";
 import ConfirmDeleteDialog from "../components/ui/ConfirmDeleteDialog";
 import RichTextEditor from "../components/admin/RichTextEditor";
+import ContentHealth from "../components/admin/ContentHealth";
+import StatusBadge, { ViewOnSite } from "../components/cms/StatusBadge";
 import { grantCmsPreview } from "../services/auth";
+import { publicPathForContent } from "../utils/programmesView";
 import {
   createAdminItem,
   deleteAdminItem,
@@ -124,6 +127,7 @@ export default function AdminSite() {
       </div>
       {toast ? <p className="mt-3 rounded-md bg-green-50 px-4 py-2 text-sm font-semibold text-green-800">{toast}</p> : null}
       {error ? <p className="mt-3 rounded-md bg-red-50 px-4 py-2 text-sm font-semibold text-red-700">{error}</p> : null}
+      {tab === "general" ? <ContentHealth /> : null}
       <div className="mt-6 flex flex-wrap gap-2" role="tablist" aria-label="Site content sections">
         {TABS.map(([id, label]) => (
           <button
@@ -364,7 +368,8 @@ function CollectionEditor({ kind, title, fields, blank, onToast, onError }) {
               ⋮⋮
             </span>
             <p className="flex-1 text-sm font-semibold text-navy">{row.label || row.name || row.heading || row.question || row.title}</p>
-            <span className="text-xs uppercase text-muted">{row.status || "published"}</span>
+            <StatusBadge status={row.status} visible={row.visible} />
+            <ViewOnSite href={publicPathForContent({ kind, url: row.url, page: row.page })} />
             {row.locked ? null : (
               <button type="button" className="text-sm font-semibold text-navy" onClick={() => setAdminVisibility(kind, row.id, !row.visible).then(load)}>
                 {row.visible === false ? "Show" : "Hide"}
@@ -476,6 +481,7 @@ function SectionEditor({ page, onToast, onError, onPreview }) {
   const [rows, setRows] = useState([]);
   const [form, setForm] = useState(null);
   const [dragId, setDragId] = useState("");
+  const [creating, setCreating] = useState({ title: "", key: "", subtitle: "", body: "" });
 
   async function load() {
     const all = await fetchAdminCollection("sections");
@@ -510,6 +516,27 @@ function SectionEditor({ page, onToast, onError, onPreview }) {
     onToast("Section order saved.");
   }
 
+  async function addSection() {
+    try {
+      const key = (creating.key || creating.title || "section").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      await createAdminItem("sections", {
+        page,
+        key,
+        title: creating.title,
+        subtitle: creating.subtitle,
+        body: creating.body,
+        visible: true,
+        status: "published",
+        order: rows.length,
+      });
+      setCreating({ title: "", key: "", subtitle: "", body: "" });
+      await load();
+      onToast("Section published.");
+    } catch (err) {
+      onError(err.message);
+    }
+  }
+
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -533,7 +560,8 @@ function SectionEditor({ page, onToast, onError, onPreview }) {
             <div className="flex flex-wrap items-center gap-2">
               <span className="cursor-grab text-muted">⋮⋮</span>
               <p className="flex-1 text-sm font-semibold text-navy">{row.title || row.key}</p>
-              <span className="text-xs uppercase text-muted">{row.status}</span>
+              <StatusBadge status={row.status} visible={row.visible} />
+              <ViewOnSite href={publicPathForContent({ page })} />
               {row.locked ? null : (
                 <button type="button" className="text-sm font-semibold text-navy" onClick={() => setAdminVisibility("sections", row.id, !row.visible).then(load)}>
                   {row.visible === false ? "Show" : "Hide"}
@@ -546,6 +574,21 @@ function SectionEditor({ page, onToast, onError, onPreview }) {
           </div>
         ))}
       </div>
+      <form
+        className="mt-4 grid gap-3 rounded-2xl border border-dashed border-navy/20 bg-white p-5"
+        onSubmit={(event) => {
+          event.preventDefault();
+          addSection();
+        }}
+      >
+        <p className="text-sm font-semibold text-navy">Add a published section</p>
+        <Field label="Title" value={creating.title} onChange={(v) => setCreating((c) => ({ ...c, title: v }))} />
+        <Field label="Key (optional slug)" value={creating.key} onChange={(v) => setCreating((c) => ({ ...c, key: v }))} />
+        <RichTextEditor label="Body" value={creating.body} onChange={(v) => setCreating((c) => ({ ...c, body: v }))} />
+        <button type="submit" className="w-fit rounded-full bg-navy px-4 py-2 text-sm font-semibold text-white">
+          Publish section
+        </button>
+      </form>
       {form ? (
         <form
           className="mt-4 grid gap-3 rounded-2xl border border-navy/10 bg-white p-5"

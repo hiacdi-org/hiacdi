@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { adminPath } from "../adminPath";
 import PasswordField from "../components/auth/PasswordField";
 import PageLoader from "../components/ui/PageLoader";
+import ServerStatusBanner from "../components/layout/ServerStatusBanner";
 import { adminLogin, clearSession, fetchAdminLockStatus, unlockAdminWithToken } from "../services/auth";
 
 const inputClass =
@@ -60,15 +61,16 @@ export default function AdminLogin() {
   }
 
   return (
-    <section className="flex min-h-screen items-center justify-center bg-navy-dark px-4 py-10">
+    <section className="flex min-h-screen flex-col items-center justify-center bg-navy-dark px-4 py-10">
+      <div className="fixed inset-x-0 top-0 z-20">
+        <ServerStatusBanner />
+      </div>
       <div className="relative w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl sm:p-10">
         {busy ? <PageLoader overlay label={locked ? "Checking token..." : "Signing in..."} /> : null}
         <div className="flex flex-col items-center text-center">
-          <img
-            src="/brand/logo-mark.png?v=3"
-            alt="HIACDI"
-            className="h-16 w-auto object-contain"
-          />
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-navy/10">
+            <img src="/brand/logo-mark.png?v=3" alt="HIACDI" className="admin-brand-logo" />
+          </div>
           <p className="font-heading mt-3 text-lg font-bold text-navy">
             HIACDI
           </p>

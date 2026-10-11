@@ -1,22 +1,13 @@
 import { useRef, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { aboutPages, involvedPages, newsPages, projectPages, resourcePages } from "../../data/cboPages";
-import { programmeGroups } from "../../data/programmes";
 import { site as fallbackSite } from "../../data/site";
-import { useCmsNav, usePublicSite } from "../../hooks/useCms";
+import { usePublicCms } from "../../context/PublicCmsContext";
 import ApplyCta from "../ui/ApplyCta";
 import NavDropdown from "./NavDropdown";
 
-const menus = {
+const staticMenus = {
   about: aboutPages,
-  programmes: [
-    { to: "/programmes", label: "All programmes", text: "Twelve areas of HIACDI community work" },
-    ...programmeGroups.map((group) => ({
-      to: `/programmes/${group.slug}`,
-      label: group.title,
-      text: group.summary,
-    })),
-  ],
   projects: [{ to: "/projects", label: "Overview", text: "Projects and impact" }, ...projectPages],
   news: [{ to: "/news", label: "Overview", text: "News and events" }, ...newsPages],
   resources: [{ to: "/resources", label: "Overview", text: "Downloads and guidance" }, ...resourcePages],
@@ -54,8 +45,18 @@ export default function Navbar({ onSearch, onBook }) {
   const [menu, setMenu] = useState("");
   const closeTimer = useRef(null);
   const location = useLocation();
-  const site = usePublicSite();
-  const cmsItems = useCmsNav();
+  const { site, nav: cmsItems, programmeGroups: groups } = usePublicCms();
+  const menus = {
+    ...staticMenus,
+    programmes: [
+      { to: "/programmes", label: "All programmes", text: "Twelve areas of HIACDI community work" },
+      ...groups.map((group) => ({
+        to: `/programmes/${group.slug}`,
+        label: group.title,
+        text: group.summary,
+      })),
+    ],
+  };
   const tree = navTree(cmsItems);
   const hasVerify = tree.some((item) => item.url === "/verify");
   const links = hasVerify ? tree : [...tree, { id: "verify", label: "Verify Certificate", url: "/verify", children: [] }];
@@ -120,8 +121,8 @@ export default function Navbar({ onSearch, onBook }) {
   return (
     <header className="relative sticky top-0 z-50 w-full border-b border-black/5 bg-white/95 backdrop-blur">
       <div className="mx-auto flex h-14 w-full max-w-7xl items-center justify-between gap-2 px-3 sm:px-5">
-        <Link to="/" className="flex h-10 w-[88px] shrink-0 items-center" onClick={closeAll} onMouseEnter={hideMenuNow}>
-          <img src={logo} alt={orgName} width={88} height={40} className="nav-logo" />
+        <Link to="/" className="flex h-6 shrink-0 items-center" onClick={closeAll} onMouseEnter={hideMenuNow}>
+          <img src={logo} alt={orgName} width={24} height={24} className="nav-logo" />
         </Link>
 
         <nav className="desktop-nav hidden items-center gap-3 xl:flex xl:gap-4">
@@ -179,14 +180,24 @@ export default function Navbar({ onSearch, onBook }) {
           </div>
         </nav>
 
-        <button
-          type="button"
-          className="mobile-menu-btn ml-auto inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-navy/15 text-navy xl:hidden"
-          aria-label={open ? "Close menu" : "Open menu"}
-          onClick={() => setOpen((value) => !value)}
-        >
-          <MenuIcon open={open} />
-        </button>
+        <div className="ml-auto flex items-center gap-2 xl:hidden">
+          <NavLink
+            to="/verify"
+            className="inline-flex min-h-11 items-center rounded-full bg-gold px-3 py-2 text-sm font-semibold text-white"
+            onClick={closeAll}
+          >
+            Verify
+          </NavLink>
+          <button
+            type="button"
+            className="mobile-menu-btn inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-navy/15 text-navy"
+            aria-label={open ? "Close menu" : "Open menu"}
+            aria-expanded={open}
+            onClick={() => setOpen((value) => !value)}
+          >
+            <MenuIcon open={open} />
+          </button>
+        </div>
       </div>
 
       {open ? (
@@ -202,11 +213,11 @@ export default function Navbar({ onSearch, onBook }) {
                   key={item.id || item.url}
                   item={item}
                   onClick={closeAll}
-                  className="py-1 text-sm font-semibold text-navy"
+                  className="inline-flex min-h-11 items-center text-base font-semibold text-navy"
                 />
               );
             })}
-            <NavLink to="/courses" onClick={closeAll} className="py-1 text-sm font-semibold text-navy">
+            <NavLink to="/courses" onClick={closeAll} className="inline-flex min-h-11 items-center text-base font-semibold text-navy">
               Education courses
             </NavLink>
             <button
@@ -237,7 +248,7 @@ function MobileMenu({ label, items, onNavigate }) {
     <div>
       <button
         type="button"
-        className="flex w-full items-center justify-between py-1 text-sm font-semibold text-navy"
+        className="flex min-h-11 w-full items-center justify-between py-2 text-base font-semibold text-navy"
         onClick={() => setShow((value) => !value)}
       >
         {label}

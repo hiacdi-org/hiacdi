@@ -64,7 +64,28 @@ export default function AdminContacts() {
       <p className="mt-2 text-sm text-muted">
         Messages submitted through Contact Us. Approve, reject, or delete a student enquiry. {unreadCount} unread.
       </p>
-      {error ? <p className="mt-4 text-sm font-semibold text-red-700">{error}</p> : null}
+      {error ? (
+        <div className="mt-4 flex flex-wrap items-center gap-3 text-sm font-semibold text-red-700">
+          <span>{error}</span>
+          <button
+            type="button"
+            className="underline"
+            onClick={() => {
+              setError("");
+              setLoading(true);
+              fetchContactMessages()
+                .then((data) => {
+                  setMessages(data.messages || []);
+                  setUnreadCount(data.unreadCount || 0);
+                })
+                .catch(() => setError("Could not load contact messages."))
+                .finally(() => setLoading(false));
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      ) : null}
 
       <div className="relative mt-8 min-h-16">
         {loading ? <PageLoader overlay label="Loading messages..." /> : null}

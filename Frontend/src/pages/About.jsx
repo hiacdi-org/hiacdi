@@ -13,6 +13,9 @@ export default function About() {
   const page = useCmsPage("about");
   const team = useCmsTeam();
   const sections = page?.sections || [];
+  if (page.loading) {
+    return <div className="px-4 py-24 text-center text-sm text-muted">Loading About…</div>;
+  }
   if (!sections.length) return <FallbackAbout onBook={onBook} />;
   const hero = sections.find((row) => row.key === "who-we-are") || sections[0];
   const vision = sections.find((row) => row.key === "vision");

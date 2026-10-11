@@ -1,5 +1,8 @@
 import { Router } from "express";
-import { attachAdminSession, extractToken, login, logout, requireAdmin } from "../utils/auth.js";
+import bcrypt from "bcryptjs";
+import Admin from "../models/Admin.js";
+import { attachAdminSession, checkCredentials, extractToken, login, logout, requireAdmin } from "../utils/auth.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 import { rateLimit } from "../utils/rateLimit.js";
 import { clearAdminLoginLock, readAdminLoginLock, recordAdminLoginFailure } from "../utils/adminLoginLock.js";
 import {
@@ -36,6 +39,39 @@ router.post("/login", rateLimit({ max: 10, windowMs: 15 * 60 * 1000, message: "T
   attachAdminSession(res, result);
   res.json({ ok: true, token: result.token, expiresAt: result.expiresAt });
 });
+
+router.get("/me", requireAdmin, asyncHandler(async (_req, res) => {
+  const email = String(process.env.ADMIN_EMAIL || "").trim().toLowerCase();
+  let name = String(process.env.ADMIN_NAME || "").trim() || "HIACDI Admin";
+  try {
+    if (email) {
+      const admin = await Admin.findOne({ email }).lean();
+      if (admin?.name) name = admin.name;
+    }
+  } catch (error) {
+    console.error("Admin profile lookup failed:", error);
+  }
+  res.json({ name, email, role: "admin" });
+}));
+
+router.post("/password", requireAdmin, asyncHandler(async (req, res) => {
+  const email = String(process.env.ADMIN_EMAIL || "").trim().toLowerCase();
+  const currentPassword = String(req.body?.currentPassword || "");
+  const newPassword = String(req.body?.newPassword || "");
+  if (!email) {
+    return res.status(400).json({ message: "Admin email is not configured." });
+  }
+  if (newPassword.length < 10) {
+    return res.status(400).json({ message: "Use a new password of at least 10 characters." });
+  }
+  if (!(await checkCredentials(email, currentPassword))) {
+    return res.status(401).json({ message: "Current password is incorrect." });
+  }
+  const passwordHash = await bcrypt.hash(newPassword, 12);
+  const name = String(process.env.ADMIN_NAME || "").trim() || "HIACDI Admin";
+  await Admin.findOneAndUpdate({ email }, { name, email, passwordHash, role: "admin" }, { upsert: true, new: true });
+  res.json({ ok: true, message: "Password updated." });
+}));
 
 router.post("/logout", (req, res) => {
   logout(extractToken(req), res);

@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import {
   fetchCurrentUser,
   getCachedUser,
+  getUserToken,
   loginUser,
   loginWithGoogle,
   logoutUser,
@@ -15,6 +16,10 @@ export function UserAuthProvider({ children }) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    if (!getCachedUser() && !getUserToken()) {
+      setReady(true);
+      return;
+    }
     fetchCurrentUser()
       .then((current) => setUser(current))
       .finally(() => setReady(true));

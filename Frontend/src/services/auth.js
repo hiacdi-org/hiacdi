@@ -105,6 +105,36 @@ export async function unlockAdminWithToken(token) {
   return data;
 }
 
+export async function fetchAdminMe() {
+  const token = getToken();
+  if (!token) return null;
+  const response = await fetch(apiUrl("/api/auth/me"), {
+    credentials: "include",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (response.status === 401) {
+    clearSession();
+    return null;
+  }
+  if (!response.ok) return null;
+  return response.json();
+}
+
+export async function changeAdminPassword({ currentPassword, newPassword }) {
+  const token = getToken();
+  const response = await fetch(apiUrl("/api/auth/password"), {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.message || "Could not update the password.");
+  }
+  return data;
+}
+
 export async function adminLogout() {
   const token = getToken();
   clearSession();

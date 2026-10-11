@@ -1,0 +1,14 @@
+{
+  "watch": ["server.js", "routes", "models", "utils", "config", "middleware", "data"],
+  "ignore": [
+    "data/*.json",
+    "data/**/*.json",
+    "uploads",
+    "uploads/**",
+    "logs",
+    "logs/**",
+    "node_modules"
+  ],
+  "ext": "js,mjs,cjs",
+  "delay": 400
+}

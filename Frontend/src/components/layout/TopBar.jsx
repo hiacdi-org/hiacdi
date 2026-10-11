@@ -29,35 +29,27 @@ export default function TopBar() {
     : openMessage;
 
   return (
-    <div className="w-full overflow-hidden bg-navy-dark px-3 py-2 text-center text-[11px] leading-5 text-white sm:px-5 sm:text-[13px]">
+    <div className="w-full bg-navy-dark px-3 py-2 text-center text-xs leading-5 text-white sm:px-5 sm:text-[13px]">
       {isOpen ? (
-        <div className="relative mx-auto min-h-5">
-          <p
-            className={`flex flex-wrap items-center justify-center gap-x-2 gap-y-1 transition-all duration-500 ${
-              showClose ? "pointer-events-none -translate-y-5 opacity-0" : "translate-y-0 opacity-100"
-            }`}
-          >
-            <span>{headline}</span>
-            <span className="hidden sm:inline">·</span>
-            <ApplyCta className="font-semibold text-gold underline">Apply now</ApplyCta>
+        <div className="mx-auto flex flex-col items-center justify-center gap-1 sm:flex-row sm:flex-wrap sm:gap-x-2">
+          <p className="max-w-full px-1">
+            <span className="sm:hidden">Bootcamps are open. </span>
+            <span className="hidden sm:inline">{showClose && closeAt ? "Applications close in:" : headline}</span>
+            {closeAt && showClose ? (
+              <span className="hidden sm:inline">
+                <Countdown target={closeAt} size="sm" warnAtDays={5} className="ml-1 inline text-gold" onReached={refresh} />
+              </span>
+            ) : null}
           </p>
-          {closeAt ? (
-            <p
-              className={`absolute inset-x-0 top-0 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 transition-all duration-500 ${
-                showClose ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-5 opacity-0"
-              }`}
-            >
-              <span>Applications close in:</span>
-              <Countdown target={closeAt} size="sm" warnAtDays={5} className="text-gold" onReached={refresh} />
-            </p>
-          ) : null}
+          <ApplyCta className="font-semibold text-gold underline">Apply now</ApplyCta>
         </div>
       ) : (
-        <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
-          <span>{closedMessage}</span>
+        <div className="flex flex-col items-center justify-center gap-1 sm:flex-row sm:flex-wrap sm:gap-x-2">
+          <span className="max-w-full px-1 sm:hidden">Applications are closed. Watch this site for the next intake.</span>
+          <span className="hidden max-w-full px-1 sm:inline">{closedMessage}</span>
           {reason === "not-yet-open" && openAt ? (
-            <span className="flex items-center gap-1.5">
-              <span className="text-white/70">· Opens in:</span>
+            <span className="flex flex-wrap items-center justify-center gap-1.5">
+              <span className="text-white/70">Opens in:</span>
               <Countdown target={openAt} size="sm" className="text-gold" onReached={refresh} />
             </span>
           ) : null}

@@ -1,17 +1,17 @@
 import { Router } from "express";
 import { siteContent } from "../data/content.js";
+import { defaultSettings } from "../data/cmsDefaults.js";
 import { extractToken } from "../utils/auth.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 import { verifyToken } from "../utils/sessions.js";
+import { cacheGet, cacheSet, sendCachedJson } from "../utils/publicCache.js";
 import {
   ensureCmsSeeded,
-  listAudit,
-  listRevisions,
   loadCollection,
   loadSettings,
   mapSettingsToLegacy,
   publicHome,
   publishedOnly,
-  restoreRevision,
 } from "../utils/cmsStore.js";
 
 const router = Router();
@@ -21,80 +21,139 @@ function wantsPreview(req) {
   return Boolean(verifyToken(extractToken(req), "admin"));
 }
 
-router.get("/", async (_req, res) => {
+function cachedOrFresh(res, key, builder) {
+  const hit = cacheGet(key);
+  if (hit) return sendCachedJson(res, hit);
+  return builder().then((value) => sendCachedJson(res, cacheSet(key, value)));
+}
+
+function emptyHome(settings) {
+  return {
+    settings: settings || { ...defaultSettings, id: "settings" },
+    sections: [],
+    stats: [],
+    slides: [],
+    partners: [],
+    testimonials: [],
+    nav: [],
+    programmeGroups: [],
+    posts: [],
+  };
+}
+
+router.get("/", asyncHandler(async (_req, res) => {
   try {
-    await ensureCmsSeeded();
-    const settings = await loadSettings();
-    res.setHeader("Cache-Control", "public, max-age=60");
-    res.json({
-      ...siteContent,
-      ...mapSettingsToLegacy(settings),
-      whatsapp: settings.contact?.whatsapp || process.env.WHATSAPP || siteContent.whatsapp,
-      learningModes: siteContent.learningModes,
-      booking: siteContent.booking,
+    await cachedOrFresh(res, "site:legacy", async () => {
+      await ensureCmsSeeded();
+      const settings = await loadSettings();
+      return {
+        ...siteContent,
+        ...mapSettingsToLegacy(settings),
+        whatsapp: settings.contact?.whatsapp || process.env.WHATSAPP || siteContent.whatsapp,
+        learningModes: siteContent.learningModes,
+        booking: siteContent.booking,
+      };
     });
-  } catch {
+  } catch (error) {
+    console.error("GET /api/site failed:", error.message);
     res.json({
       ...siteContent,
       whatsapp: process.env.WHATSAPP || siteContent.whatsapp,
     });
   }
-});
+}));
 
-router.get("/settings", async (_req, res) => {
-  await ensureCmsSeeded();
-  const settings = await loadSettings();
-  res.setHeader("Cache-Control", "public, max-age=60");
-  res.json(settings);
-});
+router.get("/settings", asyncHandler(async (_req, res) => {
+  try {
+    await cachedOrFresh(res, "site:settings", async () => {
+      await ensureCmsSeeded();
+      return loadSettings();
+    });
+  } catch (error) {
+    console.error("GET /api/site/settings failed:", error.message);
+    res.json({ ...defaultSettings, id: "settings" });
+  }
+}));
 
-router.get("/home", async (req, res) => {
+router.get("/home", asyncHandler(async (req, res) => {
+  try {
+    const preview = wantsPreview(req);
+    if (preview) {
+      res.setHeader("Cache-Control", "no-store");
+      return res.json(await publicHome({ preview: true }));
+    }
+    await cachedOrFresh(res, "site:home", () => publicHome({ preview: false }));
+  } catch (error) {
+    console.error("GET /api/site/home failed:", error.message);
+    try {
+      const settings = await loadSettings();
+      res.json(emptyHome(settings));
+    } catch {
+      res.json(emptyHome());
+    }
+  }
+}));
+
+router.get("/navigation", asyncHandler(async (req, res) => {
   const preview = wantsPreview(req);
-  res.setHeader("Cache-Control", preview ? "no-store" : "public, max-age=60");
-  res.json(await publicHome({ preview }));
-});
+  if (preview) {
+    res.setHeader("Cache-Control", "no-store");
+    return res.json(publishedOnly(await loadCollection("nav"), { preview: true }));
+  }
+  await cachedOrFresh(res, "site:nav", async () => {
+    await ensureCmsSeeded();
+    return publishedOnly(await loadCollection("nav"), { preview: false });
+  });
+}));
 
-router.get("/navigation", async (req, res) => {
-  await ensureCmsSeeded();
+router.get("/team", asyncHandler(async (req, res) => {
+  await cachedOrFresh(res, "site:team", async () => {
+    await ensureCmsSeeded();
+    return publishedOnly(await loadCollection("team"), { preview: wantsPreview(req) });
+  });
+}));
+
+router.get("/faqs", asyncHandler(async (req, res) => {
+  await cachedOrFresh(res, "site:faqs", async () => {
+    await ensureCmsSeeded();
+    return publishedOnly(await loadCollection("faqs"), { preview: wantsPreview(req) });
+  });
+}));
+
+router.get("/partners", asyncHandler(async (req, res) => {
+  await cachedOrFresh(res, "site:partners", async () => {
+    await ensureCmsSeeded();
+    return publishedOnly(await loadCollection("partners"), { preview: wantsPreview(req) });
+  });
+}));
+
+router.get("/testimonials", asyncHandler(async (req, res) => {
+  await cachedOrFresh(res, "site:testimonials", async () => {
+    await ensureCmsSeeded();
+    return publishedOnly(await loadCollection("testimonials"), { preview: wantsPreview(req) });
+  });
+}));
+
+router.get("/pages/:page", asyncHandler(async (req, res) => {
   const preview = wantsPreview(req);
-  const rows = publishedOnly(await loadCollection("nav"), { preview });
-  res.setHeader("Cache-Control", preview ? "no-store" : "public, max-age=60");
-  res.json(rows);
-});
-
-router.get("/team", async (req, res) => {
-  await ensureCmsSeeded();
-  res.setHeader("Cache-Control", "public, max-age=60");
-  res.json(publishedOnly(await loadCollection("team"), { preview: wantsPreview(req) }));
-});
-
-router.get("/faqs", async (req, res) => {
-  await ensureCmsSeeded();
-  res.setHeader("Cache-Control", "public, max-age=60");
-  res.json(publishedOnly(await loadCollection("faqs"), { preview: wantsPreview(req) }));
-});
-
-router.get("/partners", async (req, res) => {
-  await ensureCmsSeeded();
-  res.setHeader("Cache-Control", "public, max-age=60");
-  res.json(publishedOnly(await loadCollection("partners"), { preview: wantsPreview(req) }));
-});
-
-router.get("/testimonials", async (req, res) => {
-  await ensureCmsSeeded();
-  res.setHeader("Cache-Control", "public, max-age=60");
-  res.json(publishedOnly(await loadCollection("testimonials"), { preview: wantsPreview(req) }));
-});
-
-router.get("/pages/:page", async (req, res) => {
-  await ensureCmsSeeded();
-  const preview = wantsPreview(req);
-  const sections = publishedOnly(
-    (await loadCollection("sections")).filter((row) => row.page === req.params.page),
-    { preview }
-  );
-  res.setHeader("Cache-Control", preview ? "no-store" : "public, max-age=60");
-  res.json({ page: req.params.page, sections });
-});
+  const key = `site:page:${req.params.page}`;
+  if (preview) {
+    await ensureCmsSeeded();
+    const sections = publishedOnly(
+      (await loadCollection("sections")).filter((row) => row.page === req.params.page),
+      { preview: true }
+    );
+    res.setHeader("Cache-Control", "no-store");
+    return res.json({ page: req.params.page, sections });
+  }
+  await cachedOrFresh(res, key, async () => {
+    await ensureCmsSeeded();
+    const sections = publishedOnly(
+      (await loadCollection("sections")).filter((row) => row.page === req.params.page),
+      { preview: false }
+    );
+    return { page: req.params.page, sections };
+  });
+}));
 
 export default router;

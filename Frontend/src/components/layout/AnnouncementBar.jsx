@@ -8,7 +8,7 @@ export default function AnnouncementBar() {
   const href = bar.link || "";
   const external = /^https?:\/\//i.test(href);
   return (
-    <div className="w-full bg-gold px-3 py-2 text-center text-[12px] font-semibold text-navy sm:text-sm">
+    <div className="w-full bg-gold px-3 py-2 text-center text-xs font-semibold leading-5 text-navy sm:text-sm">
       {href ? (
         external ? (
           <a href={href} target="_blank" rel="noopener noreferrer" className="underline-offset-2 hover:underline">

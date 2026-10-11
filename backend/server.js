@@ -6,7 +6,7 @@ import express from "express";
 import { existsSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
-import { connectDb } from "./config/db.js";
+import { connectDb, disconnectDb } from "./config/db.js";
 import { isCloudinaryConfigured } from "./config/cloudinary.js";
 import courseRoutes from "./routes/courses.js";
 import inquiryRoutes from "./routes/inquiries.js";
@@ -21,7 +21,6 @@ import userRoutes from "./routes/users.js";
 import enrollmentRoutes from "./routes/enrollments.js";
 import broadcastRoutes from "./routes/broadcast.js";
 import visitRoutes from "./routes/visits.js";
-import chatRoutes from "./routes/chat.js";
 import databaseRoutes from "./routes/database.js";
 import intakeRoutes from "./routes/intakes.js";
 import certificateRoutes from "./routes/certificates.js";
@@ -29,10 +28,14 @@ import programmeRoutes from "./routes/programmes.js";
 import uploadRoutes from "./routes/uploads.js";
 import contentRoutes from "./routes/content.js";
 import adminSiteRoutes from "./routes/adminSite.js";
-import { assertProductionConfig, frontendOrigin, isProduction, usesHttps } from "./utils/env.js";
+import { assertProductionConfig, frontendOrigin, isProduction, shouldRedirectToHttps, usesHttps, validateStartupEnv } from "./utils/env.js";
+import { isLocalDevOrigin } from "./utils/hosts.js";
+import { publicContentHealth } from "./utils/contentHealth.js";
+import { asyncHandler } from "./utils/asyncHandler.js";
 import { rateLimit } from "./utils/rateLimit.js";
 
 dotenv.config();
+validateStartupEnv();
 assertProductionConfig();
 
 const app = express();
@@ -41,7 +44,14 @@ const here = dirname(fileURLToPath(import.meta.url));
 const frontendDist = join(here, "../Frontend/dist");
 
 app.disable("x-powered-by");
-app.use(compression());
+app.use(
+  compression({
+    filter(req, res) {
+      if (String(req.originalUrl || req.url || "").includes("/export/")) return false;
+      return compression.filter(req, res);
+    },
+  })
+);
   if (isProduction()) {
     app.set("trust proxy", 1);
   } else {
@@ -60,11 +70,7 @@ function isAllowedOrigin(origin) {
       .map((item) => item.trim().replace(/\/$/, ""))
       .filter(Boolean);
     if (extra.includes(origin)) return true;
-    if (!isProduction()) {
-      if (host === "localhost" || host === "127.0.0.1") return true;
-      if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(host)) return true;
-      if (/^192\.168\./.test(host) || /^10\./.test(host)) return true;
-    }
+    if (isLocalDevOrigin(origin)) return true;
     return false;
   } catch {
     return false;
@@ -72,12 +78,8 @@ function isAllowedOrigin(origin) {
 }
 
 app.use((req, res, next) => {
-  if (!usesHttps()) return next();
-  const proto = String(req.headers["x-forwarded-proto"] || req.protocol || "");
-  if (proto === "https" || req.secure) return next();
-  const host = req.headers.host;
-  if (!host) return next();
-  return res.redirect(301, `https://${host}${req.originalUrl}`);
+  if (!shouldRedirectToHttps(req)) return next();
+  return res.redirect(301, `https://${req.headers.host}${req.originalUrl}`);
 });
 
 app.use((req, res, next) => {
@@ -99,8 +101,9 @@ app.use((req, res, next) => {
       "script-src 'self' https://accounts.google.com https://apis.google.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com data:",
-      "img-src 'self' data: blob: https:",
-      "connect-src 'self' https://accounts.google.com https://oauth2.googleapis.com",
+      "img-src 'self' data: blob: https: https://res.cloudinary.com",
+      "media-src 'self' https: blob:",
+      "connect-src 'self' https://accounts.google.com https://oauth2.googleapis.com https://res.cloudinary.com",
       "frame-src https://accounts.google.com https://apis.google.com https://maps.google.com https://www.google.com",
     ].join("; ")
   );
@@ -137,24 +140,51 @@ app.use((req, _res, next) => {
 
 app.use("/api", (req, res, next) => {
   const path = req.path || "";
+  const liveContent =
+    path === "/site" ||
+    path.startsWith("/site/") ||
+    path.startsWith("/programmes") ||
+    path.startsWith("/content");
+  if (liveContent) return next();
   const publicCache =
     req.method === "GET" &&
     (path === "/health" ||
-      path === "/site" ||
+      path === "/diagnostics" ||
       path === "/courses" ||
       path === "/courses/catalog" ||
       path === "/bookings/config" ||
-      path === "/intakes" ||
-      path.startsWith("/site/"));
+      path === "/intakes");
   res.setHeader("Cache-Control", publicCache ? "public, max-age=60" : "no-store");
   next();
 });
 
 app.use("/api", rateLimit({ max: 400, windowMs: 15 * 60 * 1000, message: "Too many requests. Please wait a moment." }));
 
-app.get("/api/health", (_req, res) => {
-  res.json({ ok: true, name: "HIACDI API" });
-});
+app.get("/api/health", asyncHandler(async (_req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  try {
+    res.json(await publicContentHealth());
+  } catch (error) {
+    console.error("GET /api/health failed:", error.message);
+    res.json({
+      ok: true,
+      name: "HIACDI API",
+      server: { up: true, port: Number(process.env.PORT || 5000), uptimeSec: Math.round(process.uptime()) },
+      database: { ready: false, error: "Could not read database status." },
+      mongo: { ready: false, latencyMs: null },
+    });
+  }
+}));
+
+app.get("/api/diagnostics", asyncHandler(async (_req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  try {
+    res.json(await publicContentHealth());
+  } catch (error) {
+    console.error("GET /api/diagnostics failed:", error.message);
+    res.status(500).json({ ok: false, message: "Could not load diagnostics." });
+  }
+}));
 
 app.get("/api/public/email-logo.png", (_req, res) => {
   const file = join(here, "assets/logo-email.png");
@@ -177,7 +207,6 @@ app.use("/api/users", userRoutes);
 app.use("/api/enrollments", enrollmentRoutes);
 app.use("/api/broadcast", broadcastRoutes);
 app.use("/api/visits", visitRoutes);
-app.use("/api/chat", chatRoutes);
 app.use("/api/database", databaseRoutes);
 app.use("/api/intakes", intakeRoutes);
 app.use("/api/certificates", certificateRoutes);
@@ -212,26 +241,85 @@ if (existsSync(join(frontendDist, "index.html"))) {
 }
 
 app.use((err, _req, res, _next) => {
-  console.error(err?.message || err);
+  console.error(err);
+  if (res.headersSent) return;
   if (String(err?.message || "").includes("CORS")) {
     return res.status(403).json({ message: "Request blocked." });
   }
-  res.status(500).json({ message: "Something went wrong." });
+  const status = Number(err.status || err.statusCode || 500);
+  const message =
+    status >= 500
+      ? "Something went wrong."
+      : err.message || "Could not complete this request.";
+  res.status(status).json({ message });
 });
 
-app.listen(port, "0.0.0.0", () => {
-  console.log(`HIACDI backend running on http://localhost:${port}`);
-  console.log(
-    isCloudinaryConfigured()
-      ? "Cloudinary uploads: ready"
-      : "Cloudinary uploads: not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET in backend/.env."
-  );
-  connectDb().catch((error) => {
-    console.error("MongoDB connection failed:", error.message);
-    if (isProduction()) {
-      console.error("MongoDB is required in production. Set MONGO_URI and ALLOW_REMOTE_MONGO=true for Atlas.");
+let httpServer = null;
+let shuttingDown = false;
+
+function shutdown(signal, exitCode = 0) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.error(`${signal}: closing HTTP server`);
+  const finish = () => {
+    disconnectDb()
+      .catch((error) => console.error("MongoDB disconnect failed:", error.message))
+      .finally(() => process.exit(exitCode));
+  };
+  if (!httpServer) {
+    finish();
+    return;
+  }
+  httpServer.close(() => finish());
+  setTimeout(() => {
+    console.error("Graceful shutdown timed out. Exiting.");
+    process.exit(exitCode);
+  }, 2000).unref();
+}
+
+process.on("unhandledRejection", (reason) => {
+  console.error("unhandledRejection:", reason);
+});
+
+process.on("uncaughtException", (error) => {
+  console.error("uncaughtException:", error);
+  shutdown("uncaughtException", 1);
+});
+
+process.on("SIGINT", () => shutdown("SIGINT", 0));
+process.on("SIGTERM", () => shutdown("SIGTERM", 0));
+
+async function start() {
+  try {
+    await connectDb({ retries: 3 });
+  } catch (error) {
+    console.error("MongoDB connection failed after retries:", error.message);
+    if (String(process.env.REQUIRE_MONGO || "").toLowerCase() === "true") {
+      console.error("REQUIRE_MONGO=true — exiting.");
       process.exit(1);
     }
-    console.log("Using local file storage until MongoDB is available.");
+    console.warn("Starting with local JSON fallback so Vite on port 5175 can still reach this API.");
+  }
+
+  httpServer = app.listen(port, "0.0.0.0", () => {
+    console.log(`HIACDI backend listening on http://127.0.0.1:${port} (bind 0.0.0.0:${port})`);
+    console.log(
+      isCloudinaryConfigured()
+        ? "Cloudinary uploads: ready"
+        : "Cloudinary uploads: not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET in backend/.env."
+    );
   });
-});
+
+  httpServer.on("error", (error) => {
+    if (error.code === "EADDRINUSE") {
+      console.error(
+        `Port ${port} is already in use. On Windows run: netstat -ano | findstr :${port}   then   taskkill /PID <pid> /F`
+      );
+    } else {
+      console.error("HTTP server error:", error);
+    }
+    process.exit(1);
+  });
+}
+
+start();

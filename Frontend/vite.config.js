@@ -17,7 +17,7 @@ export default defineConfig({
     },
   },
   server: {
-    host: true,
+    host: "0.0.0.0",
     port: 5175,
     strictPort: true,
     watch: {
@@ -28,6 +28,22 @@ export default defineConfig({
       "/api": {
         target: "http://127.0.0.1:5000",
         changeOrigin: true,
+        configure(proxy) {
+          proxy.on("error", (err, req, res) => {
+            const url = req?.url || "/api";
+            console.error(
+              `[vite] API proxy error: ${req?.method || "GET"} ${url} → ${err.code || err.message}. Start the Express backend on http://127.0.0.1:5000 (from the repo root: npm run dev).`
+            );
+            if (res && !res.headersSent && typeof res.writeHead === "function") {
+              res.writeHead(502, { "Content-Type": "application/json" });
+              res.end(
+                JSON.stringify({
+                  message: "Can't reach the API server on port 5000. Start the backend and retry.",
+                })
+              );
+            }
+          });
+        },
       },
     },
   },

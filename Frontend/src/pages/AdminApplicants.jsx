@@ -353,7 +353,23 @@ export default function AdminApplicants() {
         </div>
       </div>
 
-      {error ? <p className="mt-4 text-sm text-gold-dark">{error}</p> : null}
+      {error ? (
+        <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-gold-dark">
+          <span>{error}</span>
+          <button
+            type="button"
+            className="font-semibold underline"
+            onClick={() => {
+              setLoading(true);
+              refreshApps()
+                .catch(() => setError("Could not load applicants. Start the backend, then retry."))
+                .finally(() => setLoading(false));
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      ) : null}
       {!error && !visible.length ? (
         <p className="mt-6 text-sm text-muted">
           {tab === "Closed"

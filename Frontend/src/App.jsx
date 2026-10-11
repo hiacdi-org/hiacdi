@@ -2,32 +2,36 @@ import { Suspense, lazy, useEffect } from "react";
 import { BrowserRouter, Link, Navigate, Route, Routes } from "react-router-dom";
 import { ADMIN_BASE } from "./adminPath";
 import Layout from "./components/layout/Layout";
+import ErrorBoundary from "./components/ErrorBoundary";
 import PageLoader from "./components/ui/PageLoader";
 import { ApplicationWindowProvider } from "./context/ApplicationWindowContext";
+import { ServerReachabilityProvider } from "./context/ServerReachabilityContext";
 import { UserAuthProvider } from "./context/UserAuthContext";
-import About from "./pages/About";
-import AccountDashboard from "./pages/AccountDashboard";
-import AuthCallback from "./pages/AuthCallback";
-import Careers from "./pages/Careers";
-import Contact from "./pages/Contact";
-import Faqs from "./pages/Faqs";
-import Apply from "./pages/Apply";
-import Community from "./pages/Community";
-import Corporate from "./pages/Corporate";
-import CourseCategory from "./pages/CourseCategory";
-import CourseProgram from "./pages/CourseProgram";
-import Courses from "./pages/Courses";
-import ForgotPassword from "./pages/ForgotPassword";
 import Home from "./pages/Home";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import ResetPassword from "./pages/ResetPassword";
 import Verify from "./pages/Verify";
-import VerifyConfirm from "./pages/VerifyConfirm";
-import Programmes from "./pages/Programmes";
-import ProgrammeGroup from "./pages/ProgrammeGroup";
-import ProgrammeItem from "./pages/ProgrammeItem";
-import HubLanding, { HubArticle } from "./pages/Hub";
+
+const About = lazy(() => import("./pages/About"));
+const AccountDashboard = lazy(() => import("./pages/AccountDashboard"));
+const AuthCallback = lazy(() => import("./pages/AuthCallback"));
+const Careers = lazy(() => import("./pages/Careers"));
+const Contact = lazy(() => import("./pages/Contact"));
+const Faqs = lazy(() => import("./pages/Faqs"));
+const Apply = lazy(() => import("./pages/Apply"));
+const Community = lazy(() => import("./pages/Community"));
+const Corporate = lazy(() => import("./pages/Corporate"));
+const CourseCategory = lazy(() => import("./pages/CourseCategory"));
+const CourseProgram = lazy(() => import("./pages/CourseProgram"));
+const Courses = lazy(() => import("./pages/Courses"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const Login = lazy(() => import("./pages/Login"));
+const Register = lazy(() => import("./pages/Register"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const VerifyConfirm = lazy(() => import("./pages/VerifyConfirm"));
+const Programmes = lazy(() => import("./pages/Programmes"));
+const ProgrammeGroup = lazy(() => import("./pages/ProgrammeGroup"));
+const ProgrammeItem = lazy(() => import("./pages/ProgrammeItem"));
+const HubLanding = lazy(() => import("./pages/Hub"));
+const HubArticle = lazy(() => import("./pages/Hub").then((mod) => ({ default: mod.HubArticle })));
 
 const AdminLayout = lazy(() => import("./components/admin/AdminLayout"));
 const AdminLogin = lazy(() => import("./pages/AdminLogin"));
@@ -52,6 +56,19 @@ function adminElement(element) {
     <Suspense fallback={<PageLoader overlay label="Loading..." />}>
       {element}
     </Suspense>
+  );
+}
+
+function page(element) {
+  return <Suspense fallback={<PageSkeleton />}>{element}</Suspense>;
+}
+
+function PageSkeleton() {
+  return (
+    <div className="mx-auto max-w-6xl animate-pulse px-4 py-12">
+      <div className="h-8 w-48 rounded bg-navy/10" />
+      <div className="mt-4 h-24 rounded-2xl bg-navy/5" />
+    </div>
   );
 }
 
@@ -141,59 +158,45 @@ export default function App() {
   }, []);
 
   return (
+    <ServerReachabilityProvider>
     <ApplicationWindowProvider>
       <UserAuthProvider>
       <BrowserRouter>
+        <ErrorBoundary>
         <Routes>
           <Route element={<Layout />}>
             <Route path="/" element={<Home />} />
-            <Route path="/courses" element={<Courses />} />
-            <Route
-              path="/courses/:categorySlug"
-              element={<CourseCategory />}
-            />
-            <Route
-              path="/courses/:categorySlug/:programSlug"
-              element={<CourseProgram />}
-            />
-
-            <Route path="/apply" element={<Apply />} />
-
-            <Route path="/register" element={<Register />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/auth/callback" element={<AuthCallback />} />
-            <Route path="/account" element={<AccountDashboard />} />
-
+            <Route path="/courses" element={page(<Courses />)} />
+            <Route path="/courses/:categorySlug" element={page(<CourseCategory />)} />
+            <Route path="/courses/:categorySlug/:programSlug" element={page(<CourseProgram />)} />
+            <Route path="/apply" element={page(<Apply />)} />
+            <Route path="/register" element={page(<Register />)} />
+            <Route path="/login" element={page(<Login />)} />
+            <Route path="/forgot-password" element={page(<ForgotPassword />)} />
+            <Route path="/reset-password" element={page(<ResetPassword />)} />
+            <Route path="/auth/callback" element={page(<AuthCallback />)} />
+            <Route path="/account" element={page(<AccountDashboard />)} />
             <Route path="/verify" element={<Verify />} />
-            <Route
-              path="/verify/confirm/:token"
-              element={<VerifyConfirm />}
-            />
+            <Route path="/verify/confirm/:token" element={page(<VerifyConfirm />)} />
             <Route path="/verify/:certificateId" element={<Verify />} />
-
-            <Route path="/programmes" element={<Programmes />} />
-            <Route path="/programmes/:groupSlug" element={<ProgrammeGroup />} />
-            <Route path="/programmes/:groupSlug/:itemSlug" element={<ProgrammeItem />} />
-
-            <Route path="/projects" element={<HubLanding hub="projects" />} />
-            <Route path="/projects/:slug" element={<HubArticle hub="projects" />} />
-            <Route path="/news" element={<HubLanding hub="news" />} />
-            <Route path="/news/:slug" element={<HubArticle hub="news" />} />
-            <Route path="/resources" element={<HubLanding hub="resources" />} />
-            <Route path="/resources/:slug" element={<HubArticle hub="resources" />} />
-            <Route path="/get-involved" element={<HubLanding hub="get-involved" />} />
-            <Route path="/get-involved/:slug" element={<HubArticle hub="get-involved" />} />
-
-            <Route path="/contact" element={<Contact />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/about/careers" element={<Careers />} />
-            <Route path="/about/faqs" element={<Faqs />} />
-            <Route path="/about/:slug" element={<HubArticle hub="about" />} />
-            <Route path="/corporate" element={<Corporate />} />
-            <Route path="/community" element={<Community />} />
-
+            <Route path="/programmes" element={page(<Programmes />)} />
+            <Route path="/programmes/:groupSlug" element={page(<ProgrammeGroup />)} />
+            <Route path="/programmes/:groupSlug/:itemSlug" element={page(<ProgrammeItem />)} />
+            <Route path="/projects" element={page(<HubLanding hub="projects" />)} />
+            <Route path="/projects/:slug" element={page(<HubArticle hub="projects" />)} />
+            <Route path="/news" element={page(<HubLanding hub="news" />)} />
+            <Route path="/news/:slug" element={page(<HubArticle hub="news" />)} />
+            <Route path="/resources" element={page(<HubLanding hub="resources" />)} />
+            <Route path="/resources/:slug" element={page(<HubArticle hub="resources" />)} />
+            <Route path="/get-involved" element={page(<HubLanding hub="get-involved" />)} />
+            <Route path="/get-involved/:slug" element={page(<HubArticle hub="get-involved" />)} />
+            <Route path="/contact" element={page(<Contact />)} />
+            <Route path="/about" element={page(<About />)} />
+            <Route path="/about/careers" element={page(<Careers />)} />
+            <Route path="/about/faqs" element={page(<Faqs />)} />
+            <Route path="/about/:slug" element={page(<HubArticle hub="about" />)} />
+            <Route path="/corporate" element={page(<Corporate />)} />
+            <Route path="/community" element={page(<Community />)} />
             <Route path="*" element={<NotFound />} />
           </Route>
 
@@ -229,9 +232,11 @@ export default function App() {
             <Route path="site" element={<AdminSite />} />
           </Route>
         </Routes>
+        </ErrorBoundary>
       </BrowserRouter>
       </UserAuthProvider>
     </ApplicationWindowProvider>
+    </ServerReachabilityProvider>
   );
 }
 

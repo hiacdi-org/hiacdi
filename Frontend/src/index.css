@@ -34,7 +34,23 @@ body {
   background: #ffffff;
   color: var(--color-ink);
   font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.6;
   text-size-adjust: 100%;
+}
+
+h1 {
+  font-size: clamp(1.5rem, 4vw + 1rem, 3rem);
+}
+
+h2 {
+  font-size: clamp(1.25rem, 2.5vw + 0.8rem, 2.25rem);
+}
+
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 ::selection {

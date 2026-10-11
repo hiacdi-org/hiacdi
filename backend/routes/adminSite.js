@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireAdmin } from "../utils/auth.js";
+import { adminContentHealth } from "../utils/contentHealth.js";
 import { rateLimitStrict } from "../utils/rateLimit.js";
 import {
   createItem,
@@ -24,6 +25,11 @@ function actor(req) {
 }
 
 router.use(requireAdmin, limitAdmin);
+
+router.get("/diagnostics", async (_req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.json(await adminContentHealth());
+});
 
 router.get("/site/settings", async (_req, res) => {
   res.json(await loadSettings());

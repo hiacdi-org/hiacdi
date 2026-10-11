@@ -1,12 +1,28 @@
 import { Link, Navigate, useParams } from "react-router-dom";
 import PageHero from "../components/layout/PageHero";
 import { EDUCATION_SITE_URL } from "../data/cboPages";
-import { findGroup } from "../data/programmes";
+import { useProgrammes } from "../hooks/useProgrammes";
 
 export default function ProgrammeGroup() {
   const { groupSlug } = useParams();
+  const { findGroup, loading, error, retry } = useProgrammes(groupSlug);
+  if (loading) {
+    return <div className="px-4 py-24 text-center text-sm text-muted">Loading programme…</div>;
+  }
   const group = findGroup(groupSlug);
-  if (!group) return <Navigate to="/programmes" replace />;
+  if (!group) {
+    if (error) {
+      return (
+        <div className="px-4 py-24 text-center">
+          <p className="text-sm font-semibold text-red-700">{error}</p>
+          <button type="button" className="mt-3 text-sm font-semibold text-gold" onClick={retry}>
+            Retry
+          </button>
+        </div>
+      );
+    }
+    return <Navigate to="/programmes" replace />;
+  }
 
   const isEducation = Boolean(group.educationSite);
 
@@ -23,7 +39,7 @@ export default function ProgrammeGroup() {
               the dedicated education website.
             </p>
             <a
-              href={EDUCATION_SITE_URL}
+              href={group.educationSiteUrl || EDUCATION_SITE_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="mt-5 inline-flex rounded-full bg-navy px-6 py-3 text-sm font-semibold text-white hover:bg-navy-mid"

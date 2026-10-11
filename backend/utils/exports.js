@@ -26,14 +26,29 @@ export function flattenApplication(app) {
   for (const [label, data] of sections) {
     if (!data || typeof data !== "object") continue;
     for (const [key, value] of Object.entries(data)) {
-      row[`${label} - ${key}`] = Array.isArray(value) ? value.join(", ") : value ?? "";
+      row[`${label} - ${key}`] = cellValue(value);
     }
   }
 
-  row.Skills = Array.isArray(app.skills) ? app.skills.join(", ") : "";
-  row["Heard About Us"] = app.source || "";
+  row.Skills = cellValue(app.skills);
+  row["Heard About Us"] = cellValue(app.source);
 
   return row;
+}
+
+function cellValue(value, depth = 0) {
+  if (value == null) return "";
+  if (value instanceof Date) return value.toISOString();
+  if (Array.isArray(value)) return value.map((item) => cellValue(item, depth + 1)).filter(Boolean).join(", ");
+  if (typeof value === "object") {
+    if (depth > 2) return "";
+    return Object.entries(value)
+      .filter(([, item]) => item != null && item !== "" && typeof item !== "object")
+      .map(([key, item]) => `${key}: ${cellValue(item, depth + 1)}`)
+      .join("; ");
+  }
+  const text = String(value);
+  return text.length > 500 ? `${text.slice(0, 500)}…` : text;
 }
 
 export async function buildApplicationsWorkbook(
@@ -60,6 +75,10 @@ export async function buildApplicationsWorkbook(
       if (!groups.has(name)) groups.set(name, []);
       groups.get(name).push(app);
     }
+  }
+
+  if (!groups.size) {
+    groups.set(sheetName(sheetLabel || "Applications"), []);
   }
 
   for (const [name, apps] of groups) {

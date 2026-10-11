@@ -4,6 +4,7 @@ import Programme from "../models/Programme.js";
 import { requireAdmin } from "../utils/auth.js";
 import { loadProgrammeSeed } from "../seed/loadSeed.js";
 import { destroyAsset } from "../config/cloudinary.js";
+import { cacheBust, cacheGet, cacheSet, sendCachedJson } from "../utils/publicCache.js";
 
 const router = Router();
 
@@ -11,17 +12,30 @@ function mongoReady() {
   return mongoose.connection.readyState === 1;
 }
 
-router.get("/", async (_req, res) => {
+router.get("/", async (req, res) => {
+  const groupsOnly = String(req.query.groups || "") === "1";
+  const groupSlug = String(req.query.group || "").trim();
+  const cacheKey = groupsOnly ? "programmes:groups" : groupSlug ? `programmes:group:${groupSlug}` : "programmes:all";
+  const hit = cacheGet(cacheKey);
+  if (hit) return sendCachedJson(res, hit);
   try {
+    let rows;
     if (mongoReady()) {
-      let rows = await Programme.find().sort({ order: 1 }).lean();
-      if (!rows.length) {
+      const query = groupsOnly ? { isGroup: true } : groupSlug ? { groupSlug } : {};
+      const select = groupsOnly
+        ? "title slug summary coverImage order educationSite isGroup group groupSlug"
+        : undefined;
+      rows = await Programme.find(query).select(select).sort({ order: 1 }).lean();
+      if (!rows.length && !groupSlug) {
         await Programme.insertMany(loadProgrammeSeed().programmes);
-        rows = await Programme.find().sort({ order: 1 }).lean();
+        rows = await Programme.find(query).select(select).sort({ order: 1 }).lean();
       }
-      return res.json(rows);
+    } else {
+      rows = loadProgrammeSeed().programmes;
+      if (groupsOnly) rows = rows.filter((row) => row.isGroup);
+      if (groupSlug) rows = rows.filter((row) => row.groupSlug === groupSlug);
     }
-    res.json(loadProgrammeSeed().programmes);
+    return sendCachedJson(res, cacheSet(cacheKey, rows));
   } catch {
     res.json(loadProgrammeSeed().programmes);
   }
@@ -42,6 +56,7 @@ router.patch("/:id", requireAdmin, async (req, res) => {
       row.coverImage = req.body.coverImage;
     }
     await row.save();
+    cacheBust();
     res.json(row);
   } catch {
     res.status(400).json({ message: "Could not update this programme." });

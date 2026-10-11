@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
-import { useSite } from "../../hooks/useContent";
+import { site as fallbackSite } from "../../data/site";
+import { optimizedImage } from "../../utils/media";
 import Typewriter from "../ui/Typewriter";
 
 const modeIcons = {
@@ -30,11 +31,14 @@ const modeIcons = {
 };
 
 export default function Hero({ onBook, section, slide, settings }) {
-  const site = useSite();
-  const hero = site.hero || {};
-  const modes = site.learningModes || [];
-  const title = section?.title || slide?.heading || hero.title;
-  const text = section?.subtitle || slide?.subheading || hero.text;
+  const hero = fallbackSite.hero || {};
+  const modes = fallbackSite.learningModes || [];
+  const title = section?.title || slide?.heading || hero.title || "Inclusive communities where every person can learn, grow, and live with dignity";
+  const text =
+    section?.subtitle ||
+    slide?.subheading ||
+    hero.text ||
+    "HIACDI is a community-based organisation. We work with households, schools, youth, women, and local leaders on health, protection, education, livelihoods, environment, and digital inclusion.";
   const image = slide?.image?.url || section?.image?.url || "/home/hero-background.jpg";
   const logoSrc = settings?.logo?.url || hero.logoSrc;
   const buttons = section?.buttons?.length
@@ -46,16 +50,20 @@ export default function Hero({ onBook, section, slide, settings }) {
       ];
 
   function btnClass(style) {
-    if (style === "secondary") return "rounded-full border-2 border-navy px-6 py-3 text-sm font-semibold text-navy hover:bg-navy hover:text-white sm:px-8 sm:text-base";
-    if (style === "navy") return "rounded-full bg-navy px-6 py-3 text-sm font-semibold text-white hover:bg-navy-mid sm:px-8 sm:text-base";
-    return "rounded-full bg-gold px-6 py-3 text-sm font-semibold text-white hover:bg-gold-dark sm:px-8 sm:text-base";
+    if (style === "secondary") return "inline-flex min-h-11 items-center justify-center rounded-full border-2 border-navy px-6 py-3 text-base font-semibold text-navy hover:bg-navy hover:text-white sm:px-8";
+    if (style === "navy") return "inline-flex min-h-11 items-center justify-center rounded-full bg-navy px-6 py-3 text-base font-semibold text-white hover:bg-navy-mid sm:px-8";
+    return "inline-flex min-h-11 items-center justify-center rounded-full bg-gold px-6 py-3 text-base font-semibold text-white hover:bg-gold-dark sm:px-8";
   }
 
   return (
     <section className="relative w-full overflow-hidden bg-gradient-to-b from-[#f6edd2] via-white to-white">
       <img
-        src={image}
+        src={optimizedImage(image, 1600) || image}
         alt=""
+        width={1600}
+        height={900}
+        fetchPriority="high"
+        decoding="async"
         className="pointer-events-none absolute inset-0 h-full w-full object-cover object-[center_30%] opacity-[0.32]"
       />
       <img
@@ -64,22 +72,25 @@ export default function Hero({ onBook, section, slide, settings }) {
         className="pointer-events-none absolute inset-0 m-auto h-[70%] w-[70%] max-w-lg object-contain opacity-[0.08] sm:w-[60%] sm:max-w-3xl"
       />
       <div className="relative z-10 mx-auto w-full max-w-4xl px-4 pt-12 pb-20 text-center sm:px-6 sm:pt-20 sm:pb-16">
-        <p className="min-h-[1.6em] font-heading text-lg font-bold text-gold sm:text-2xl">
+        <p className="font-heading text-base font-bold text-gold sm:min-h-[1.6em] sm:text-2xl">
           <span className="text-navy">Welcome</span> To:{" "}
-          <Typewriter
-            segments={[
-              { text: "HIA", className: "text-navy" },
-              { text: " Community ", className: "" },
-              { text: "Development", className: "text-navy" },
-              { text: " Initiative ", className: "" },
-            ]}
-            typingSpeed={100}
-            deletingSpeed={50}
-            pauseAfterType={1000}
-            pauseAfterDelete={600}
-          />
+          <span className="sm:hidden">HIACDI</span>
+          <span className="hidden sm:inline">
+            <Typewriter
+              segments={[
+                { text: "HIA", className: "text-navy" },
+                { text: " Community ", className: "" },
+                { text: "Development", className: "text-navy" },
+                { text: " Initiative ", className: "" },
+              ]}
+              typingSpeed={100}
+              deletingSpeed={50}
+              pauseAfterType={1000}
+              pauseAfterDelete={600}
+            />
+          </span>
         </p>
-        <h1 className="mt-2 font-heading text-[1.7rem] leading-tight font-bold text-navy sm:text-4xl md:text-5xl">
+        <h1 className="mt-2 font-heading text-[clamp(1.4rem,6.4vw,3rem)] leading-[1.22] font-bold text-navy">
           {title}
         </h1>
         <p className="mx-auto mt-4 max-w-3xl text-sm leading-7 text-navy/80 sm:mt-6 sm:text-base sm:leading-8 md:text-lg">

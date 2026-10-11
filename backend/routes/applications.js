@@ -25,6 +25,7 @@ import { findUserById } from "../utils/usersRepo.js";
 import { catalog } from "../data/catalog.js";
 import { isProduction } from "../utils/env.js";
 import { publicFail } from "../utils/httpErrors.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 import { isEmail, sanitizeObject } from "../utils/sanitize.js";
 import { gradeAssessment } from "../data/applicationQuizzes.js";
 import { publicBaseUrl } from "../utils/env.js";
@@ -144,24 +145,45 @@ function findDuplicate(existingApps, incoming, { allowRejectedReapply = true } =
   return null;
 }
 
-router.get("/", requireAdmin, async (_req, res) => {
+function slugQuery(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "")
+    .slice(0, 80);
+}
+
+async function sendWorkbook(res, workbook, filename) {
+  console.log("Excel export: writing workbook", filename);
+  const buffer = await workbook.xlsx.writeBuffer();
+  const bytes = Buffer.from(buffer);
+  console.log("Excel export: buffer ready", bytes.length);
+  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.setHeader("Content-Length", String(bytes.length));
+  res.setHeader("Cache-Control", "no-store");
+  return res.end(bytes);
+}
+
+router.get("/", requireAdmin, asyncHandler(async (_req, res) => {
   try {
     return res.json(await allApplications());
-  } catch {
+  } catch (error) {
+    console.error("List applications failed:", error);
     return res.json(readLocal().map(withState));
   }
-});
+}));
 
 router.get("/mine", requireUser, async (req, res) => {
   const apps = await allApplications();
   res.json(apps.filter((app) => String(app.userId || "") === String(req.userId)));
 });
 
-router.get("/export/excel", requireAdmin, async (req, res) => {
+router.get("/export/excel", requireAdmin, asyncHandler(async (req, res) => {
   try {
-    const categorySlug = String(req.query.categorySlug || "").trim();
-    const programSlug = String(req.query.programSlug || "").trim();
-    const intakeKey = String(req.query.intakeKey || "").trim();
+    const categorySlug = slugQuery(req.query.categorySlug);
+    const programSlug = slugQuery(req.query.programSlug);
+    const intakeKey = slugQuery(req.query.intakeKey);
     const apps = (await allApplications()).filter((app) =>
       applicationMatchesFilters(app, categorySlug, programSlug, intakeKey)
     );
@@ -171,17 +193,14 @@ router.get("/export/excel", requireAdmin, async (req, res) => {
       groupByArea: !categorySlug && !programSlug,
       sheetLabel: program?.title || category?.title || "Applications",
     });
-    res.setHeader(
-      "Content-Type",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    );
-    res.setHeader("Content-Disposition", `attachment; filename="hiacdi-applications-${Date.now()}.xlsx"`);
-    await workbook.xlsx.write(res);
-    res.end();
+    await sendWorkbook(res, workbook, `hiacdi-applications-${Date.now()}.xlsx`);
   } catch (error) {
-    res.status(400).json({ message: "Could not complete this request." });
+    console.error("Excel export failed:", error);
+    if (!res.headersSent) {
+      res.status(500).json({ message: "Could not build the Excel file. Please try again." });
+    }
   }
-});
+}));
 
 router.get("/export/pdf", requireAdmin, async (req, res) => {
   try {
@@ -217,10 +236,12 @@ router.get("/:applicationNumber/export/excel", requireAdmin, async (req, res) =>
       "Content-Disposition",
       `attachment; filename="hiacdi-applicant-${safeName || found.applicationNumber}.xlsx"`
     );
-    await workbook.xlsx.write(res);
-    res.end();
+    await sendWorkbook(res, workbook, `hiacdi-applicant-${safeName || found.applicationNumber}.xlsx`);
   } catch (error) {
-    res.status(400).json({ message: "Could not complete this request." });
+    console.error("Single Excel export failed:", error);
+    if (!res.headersSent) {
+      res.status(500).json({ message: "Could not build the Excel file. Please try again." });
+    }
   }
 });
 

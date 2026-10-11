@@ -152,9 +152,15 @@ export default function Apply() {
   }, [urlCategory, urlProgram, form.categorySlug, form.programSlug, inProgress]);
 
   useEffect(() => {
-    refreshWindow().finally(() => setCheckingWindow(false));
-    const id = setInterval(refreshWindow, 15000);
-    return () => clearInterval(id);
+    let stopped = false;
+    refreshWindow().finally(() => {
+      if (!stopped) setCheckingWindow(false);
+    });
+    const id = setInterval(refreshWindow, 30000);
+    return () => {
+      stopped = true;
+      clearInterval(id);
+    };
   }, [refreshWindow]);
 
   useEffect(() => {
@@ -424,7 +430,7 @@ export default function Apply() {
       <header className="border-b border-black/5 bg-white">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <Link to="/" className="flex items-center">
-            <img src="/brand/logo-icon.png?v=5" alt={site.name} className="h-10 w-auto" />
+            <img src="/brand/logo-icon.png?v=5" alt={site.name} className="h-6 w-auto" />
           </Link>
           <p className="text-xs font-bold tracking-[0.18em] text-navy sm:text-sm">APPLICATION FORM</p>
         </div>

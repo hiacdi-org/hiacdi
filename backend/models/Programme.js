@@ -21,5 +21,7 @@ const programmeSchema = new mongoose.Schema(
 );
 
 programmeSchema.index({ groupSlug: 1, slug: 1 }, { unique: true });
+programmeSchema.index({ isGroup: 1, order: 1 });
+programmeSchema.index({ groupSlug: 1, isGroup: 1, order: 1 });
 
 export default mongoose.model("Programme", programmeSchema);

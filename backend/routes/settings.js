@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireAdmin } from "../utils/auth.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 import {
   getPresentedWindow,
   getWindowValue,
@@ -48,15 +49,16 @@ function scopedWindow(body, previous = {}) {
   };
 }
 
-router.get("/applications", async (req, res) => {
+router.get("/applications", asyncHandler(async (req, res) => {
   try {
     res.json(await getPresentedWindow(req.query));
-  } catch {
-    res.status(400).json({ message: "Could not load application windows." });
+  } catch (error) {
+    console.error("GET /api/settings/applications failed:", error.message);
+    res.json(presentWindow(normalizeWindowValue({})));
   }
-});
+}));
 
-router.put("/applications", requireAdmin, async (req, res) => {
+router.put("/applications", requireAdmin, asyncHandler(async (req, res) => {
   try {
     const current = await getWindowValue();
     const body = req.body || {};
@@ -99,9 +101,10 @@ router.put("/applications", requireAdmin, async (req, res) => {
       categorySlug: String(req.query.category || "").trim(),
       programSlug: String(req.query.program || "").trim(),
     }));
-  } catch {
+  } catch (error) {
+    console.error("PUT /api/settings/applications failed:", error.message);
     res.status(400).json({ message: "Could not update application windows." });
   }
-});
+}));
 
 export default router;

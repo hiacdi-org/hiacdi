@@ -5,13 +5,55 @@ import { userHeaders } from "./userAuth";
 
 import { apiUrl } from "./apiBase";
 
-function apiFetch(path, options = {}) {
-  return fetch(apiUrl(path), { credentials: "include", ...options });
+const GET_TIMEOUT_MS = 12000;
+
+async function apiFetch(path, options = {}, attempt = 0) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), GET_TIMEOUT_MS);
+  try {
+    const response = await fetch(apiUrl(path), {
+      credentials: "include",
+      cache: options.method && options.method !== "GET" ? "no-store" : "default",
+      ...options,
+      signal: options.signal || controller.signal,
+      headers: { ...(options.headers || {}) },
+    });
+    return response;
+  } catch (error) {
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function getJson(path) {
   const response = await apiFetch(path);
-  if (!response.ok) throw new Error("Request failed");
+  if (!response.ok) {
+    const error = new Error("Request failed");
+    error.status = response.status;
+    error.unreachable = response.status === 502;
+    throw error;
+  }
+  return response.json();
+}
+
+export function isServerUnreachableError(error) {
+  if (!error) return false;
+  if (error.unreachable) return true;
+  if (error.status === 502) return true;
+  const name = String(error.name || "");
+  const message = String(error.message || "");
+  return name === "TypeError" || name === "AbortError" || /failed to fetch|networkerror|aborted/i.test(message);
+}
+
+export async function fetchApiHealth() {
+  const response = await apiFetch("/api/health", { cache: "no-store" });
+  if (!response.ok) {
+    const error = new Error("API health check failed.");
+    error.status = response.status;
+    error.unreachable = response.status === 502;
+    throw error;
+  }
   return response.json();
 }
 
@@ -33,11 +75,35 @@ async function getJsonAuthed(path) {
 }
 
 export async function fetchSite() {
-  try {
-    return await getJson("/api/site");
-  } catch {
-    return fallbackSite;
-  }
+  return getJson("/api/site");
+}
+
+export function fetchProgrammes(query = "") {
+  return getJson(`/api/programmes${query}`);
+}
+
+export function fetchPublicPosts() {
+  return getJson("/api/content/posts");
+}
+
+export function fetchPublicPost(slug) {
+  return getJson(`/api/content/posts/${encodeURIComponent(slug)}`);
+}
+
+export function fetchPublicGallery() {
+  return getJson("/api/content/gallery");
+}
+
+export function fetchPublicResources() {
+  return getJson("/api/content/resources");
+}
+
+export function fetchDiagnostics() {
+  return getJson("/api/diagnostics");
+}
+
+export function fetchAdminDiagnostics() {
+  return getJsonAuthed("/api/admin/diagnostics");
 }
 
 function previewAuthHeaders() {
@@ -54,9 +120,19 @@ function previewQuery() {
 export async function fetchCmsHome() {
   const suffix = previewQuery();
   const headers = suffix ? previewAuthHeaders() : {};
-  const response = await apiFetch(`/api/site/home${suffix}`, { headers });
-  if (!response.ok) throw new Error("Could not load home content.");
-  return response.json();
+  try {
+    const response = await apiFetch(`/api/site/home${suffix}`, { headers });
+    if (!response.ok) {
+      const error = new Error("Could not load home content.");
+      error.status = response.status;
+      error.unreachable = response.status === 502;
+      throw error;
+    }
+    return response.json();
+  } catch (error) {
+    if (!error.status) error.unreachable = true;
+    throw error;
+  }
 }
 
 export async function fetchCmsNavigation() {
@@ -509,7 +585,8 @@ export async function fetchApplicationWindow(params = {}) {
     if (params.program) query.set("program", params.program);
     const suffix = query.toString() ? `?${query}` : "";
     return await getJson(`/api/settings/applications${suffix}`);
-  } catch {
+  } catch (error) {
+    if (isServerUnreachableError(error)) throw error;
     return null;
   }
 }
@@ -672,19 +749,6 @@ export async function recordVisit(payload) {
 
 export async function fetchVisitors() {
   return getJsonAuthed("/api/visits");
-}
-
-export async function sendChat(messages) {
-  const response = await apiFetch("/api/chat", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages }),
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(data.message || "HIACDI AI could not reply. Please try again.");
-  }
-  return data;
 }
 
 export async function fetchIntakes() {

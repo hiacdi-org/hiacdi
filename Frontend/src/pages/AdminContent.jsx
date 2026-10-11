@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import FileUpload from "../components/ui/FileUpload";
+import StatusBadge, { ViewOnSite } from "../components/cms/StatusBadge";
 import {
   createGalleryItem,
   createPost,
@@ -125,8 +126,10 @@ function PostForm({ rows, onSaved, onError }) {
       </form>
       <ul className="mt-6 space-y-3">
         {rows.map((row) => (
-          <li key={row._id} className="flex items-center justify-between rounded-xl border border-navy/10 bg-white px-4 py-3">
+          <li key={row._id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-navy/10 bg-white px-4 py-3">
             <span className="font-semibold text-navy">{row.title}</span>
+            <StatusBadge status={row.published === false ? "draft" : "published"} visible />
+            <ViewOnSite href={`/news/${row.slug}`} />
             <button
               type="button"
               className="text-sm font-semibold text-red-700"
@@ -183,6 +186,7 @@ function GalleryForm({ rows, onSaved, onError }) {
           <li key={row._id} className="rounded-xl border border-navy/10 bg-white p-3">
             {row.image?.url ? <img src={row.image.url} alt={row.title} className="h-32 w-full rounded-md object-cover" /> : null}
             <p className="mt-2 text-sm font-semibold text-navy">{row.title}</p>
+            <ViewOnSite href="/projects/gallery" />
             <button
               type="button"
               className="mt-2 text-xs font-semibold text-red-700"
@@ -247,8 +251,10 @@ function ResourceForm({ rows, onSaved, onError }) {
       </form>
       <ul className="mt-6 space-y-3">
         {rows.map((row) => (
-          <li key={row._id} className="flex items-center justify-between rounded-xl border border-navy/10 bg-white px-4 py-3">
+          <li key={row._id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-navy/10 bg-white px-4 py-3">
             <span className="font-semibold text-navy">{row.title}</span>
+            <StatusBadge status="published" visible />
+            <ViewOnSite href="/resources" />
             <button
               type="button"
               className="text-sm font-semibold text-red-700"

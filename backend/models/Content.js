@@ -21,6 +21,8 @@ export const Post = mongoose.model(
     { timestamps: true }
   )
 );
+Post.schema.index({ published: 1, createdAt: -1 });
+Post.schema.index({ slug: 1, published: 1 });
 
 export const GalleryItem = mongoose.model(
   "GalleryItem",

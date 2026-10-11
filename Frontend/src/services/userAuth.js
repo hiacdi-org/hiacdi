@@ -90,14 +90,10 @@ export async function loginWithGoogle(credential) {
 }
 
 export async function fetchCurrentUser() {
-  const response = await fetch(apiUrl("/api/users/me"), { credentials: "include", headers: userHeaders() });
-  if (!response.ok) {
-    clearUserSession();
-    return null;
-  }
-  const data = await response.json();
-  if (data.user) localStorage.setItem(USER_KEY, JSON.stringify(data.user));
-  return data.user;
+  // Learner accounts are closed. Never call GET /api/users/me (it is 410).
+  if (!getUserToken()) return null;
+  clearUserSession();
+  return null;
 }
 
 export async function logoutUser() {

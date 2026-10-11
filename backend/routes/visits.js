@@ -5,6 +5,7 @@ import { Router } from "express";
 import mongoose from "mongoose";
 import Visitor from "../models/Visitor.js";
 import { requireAdmin } from "../utils/auth.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 import { readJson, writeJson } from "../utils/localJson.js";
 import { rateLimit } from "../utils/rateLimit.js";
 
@@ -104,84 +105,87 @@ async function allVisitors() {
   } else {
     rows = readJson(storePath, []).map(withId);
   }
-  const numbered = assignVisitorNumbers(collapseVisitors(rows)).map(publicVisitor);
-  if (mongoose.connection.readyState !== 1) {
-    writeJson(storePath, numbered);
-  }
-  return numbered;
+  return assignVisitorNumbers(collapseVisitors(rows)).map(publicVisitor);
 }
 
-router.post("/", rateLimit({ max: 80, windowMs: 15 * 60 * 1000 }), async (req, res) => {
+async function persistVisit({ sessionId, path, ip, userAgent }) {
+  const now = new Date().toISOString();
+  const patch = { sessionId, ip, userAgent, lastPath: path, lastSeen: now };
+  if (mongoose.connection.readyState === 1) {
+    const existing =
+      (await Visitor.findOne({ sessionId })) ||
+      (ip && userAgent ? await Visitor.findOne({ ip, userAgent }) : null);
+    if (existing) {
+      existing.sessionId = existing.sessionId || sessionId;
+      existing.ip = ip;
+      existing.userAgent = userAgent;
+      existing.lastPath = path;
+      existing.lastSeen = now;
+      existing.pageViews = (existing.pageViews || 1) + 1;
+      if (!existing.visitorNo) existing.visitorNo = await nextVisitorNo();
+      await existing.save();
+      return;
+    }
+    await Visitor.create({
+      ...patch,
+      firstPath: path,
+      pageViews: 1,
+      firstSeen: now,
+      visitorNo: await nextVisitorNo(),
+    });
+    return;
+  }
+  const list = readJson(storePath, []);
+  const existing = findLocalMatch(list, sessionId, ip, userAgent);
+  if (existing) {
+    const index = list.findIndex((item) => item.id === existing.id || item.sessionId === existing.sessionId);
+    list[index] = {
+      ...existing,
+      ...patch,
+      sessionId: existing.sessionId || sessionId,
+      pageViews: (existing.pageViews || 1) + 1,
+      visitorNo: existing.visitorNo || (await nextVisitorNo(list)),
+    };
+  } else {
+    list.push({
+      ...patch,
+      id: crypto.randomUUID(),
+      firstPath: path,
+      pageViews: 1,
+      firstSeen: now,
+      visitorNo: await nextVisitorNo(list),
+    });
+  }
+  writeJson(storePath, assignVisitorNumbers(collapseVisitors(list)).slice(-5000));
+}
+
+router.post("/", rateLimit({ max: 80, windowMs: 15 * 60 * 1000 }), asyncHandler(async (req, res) => {
   const sessionId = String(req.body?.sessionId || "").trim().slice(0, 80);
   const path = String(req.body?.path || "/").trim().slice(0, 300) || "/";
   if (!sessionId || path.startsWith("/admin") || path.includes("HassAz-i-HUb@")) {
     return res.json({ ok: true });
   }
 
-  const now = new Date().toISOString();
   const ip = clientIp(req);
   const userAgent = String(req.headers["user-agent"] || "").slice(0, 250);
-  const patch = { sessionId, ip, userAgent, lastPath: path, lastSeen: now };
+  res.json({ ok: true });
+  setImmediate(() => {
+    persistVisit({ sessionId, path, ip, userAgent }).catch((error) => {
+      console.error("visit persist failed:", error.message);
+    });
+  });
+}));
 
+router.get("/", requireAdmin, asyncHandler(async (_req, res) => {
   try {
-    if (mongoose.connection.readyState === 1) {
-      const existing =
-        (await Visitor.findOne({ sessionId })) ||
-        (ip && userAgent ? await Visitor.findOne({ ip, userAgent }) : null);
-      if (existing) {
-        existing.sessionId = existing.sessionId || sessionId;
-        existing.ip = ip;
-        existing.userAgent = userAgent;
-        existing.lastPath = path;
-        existing.lastSeen = now;
-        existing.pageViews = (existing.pageViews || 1) + 1;
-        if (!existing.visitorNo) existing.visitorNo = await nextVisitorNo();
-        await existing.save();
-      } else {
-        await Visitor.create({
-          ...patch,
-          firstPath: path,
-          pageViews: 1,
-          firstSeen: now,
-          visitorNo: await nextVisitorNo(),
-        });
-      }
-    } else {
-      const list = readJson(storePath, []);
-      const existing = findLocalMatch(list, sessionId, ip, userAgent);
-      if (existing) {
-        const index = list.findIndex((item) => item.id === existing.id || item.sessionId === existing.sessionId);
-        list[index] = {
-          ...existing,
-          ...patch,
-          sessionId: existing.sessionId || sessionId,
-          pageViews: (existing.pageViews || 1) + 1,
-          visitorNo: existing.visitorNo || (await nextVisitorNo(list)),
-        };
-      } else {
-        list.push({
-          ...patch,
-          id: crypto.randomUUID(),
-          firstPath: path,
-          pageViews: 1,
-          firstSeen: now,
-          visitorNo: await nextVisitorNo(list),
-        });
-      }
-      writeJson(storePath, assignVisitorNumbers(collapseVisitors(list)).slice(-5000));
-    }
-  } catch {
-    // tracking must never break the site
+    res.json({ visitors: await allVisitors() });
+  } catch (error) {
+    console.error("GET /api/visits failed:", error.message);
+    res.json({ visitors: [] });
   }
+}));
 
-  return res.json({ ok: true });
-});
-
-router.get("/", requireAdmin, async (_req, res) => {
-  res.json({ visitors: await allVisitors() });
-});
-
-router.delete("/:id", requireAdmin, async (req, res) => {
+router.delete("/:id", requireAdmin, asyncHandler(async (req, res) => {
   const id = String(req.params.id || "");
   try {
     if (mongoose.connection.readyState === 1 && mongoose.isValidObjectId(id)) {
@@ -193,9 +197,9 @@ router.delete("/:id", requireAdmin, async (req, res) => {
     if (next.length === list.length) return res.status(404).json({ message: "Visitor not found." });
     writeJson(storePath, next);
     return res.json({ ok: true, id });
-  } catch (error) {
+  } catch {
     return res.status(400).json({ message: "Could not update this visitor record." });
   }
-});
+}));
 
 export default router;

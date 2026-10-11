@@ -37,7 +37,7 @@ export default function Footer() {
     <footer className="bg-navy-dark text-white">
       <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 sm:px-6 sm:py-16 md:grid-cols-2 lg:grid-cols-3 lg:gap-10">
         <div>
-          <img src={logo} alt={name} className="h-14 w-auto rounded-full bg-white object-contain p-1 sm:h-16" />
+          <img src={logo} alt={name} className="h-8 w-auto rounded-full bg-white object-contain p-1 sm:h-9" />
           <p className="mt-4 font-heading text-lg font-bold">{name}</p>
           <p className="mt-2 text-xs leading-5 text-white/70">{fullName}</p>
           {socialItems.length ? (

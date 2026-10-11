@@ -91,6 +91,7 @@ export const PageSection = mongoose.models.PageSection || mongoose.model(
     { timestamps: true }
   )
 );
+PageSection.schema.index({ page: 1, status: 1, visible: 1, order: 1 });
 
 export const ImpactStat = mongoose.models.ImpactStat || mongoose.model(
   "ImpactStat",

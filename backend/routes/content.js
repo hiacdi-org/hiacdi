@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { Post, GalleryItem, Resource } from "../models/Content.js";
 import { requireAdmin } from "../utils/auth.js";
 import { destroyAsset } from "../config/cloudinary.js";
+import { cacheBust } from "../utils/publicCache.js";
 
 const router = Router();
 
@@ -13,9 +14,22 @@ function mongoReady() {
 router.get("/posts", async (_req, res) => {
   try {
     if (!mongoReady()) return res.json([]);
+    res.setHeader("Cache-Control", "no-store");
     res.json(await Post.find({ published: true }).sort({ createdAt: -1 }).lean());
   } catch {
     res.json([]);
+  }
+});
+
+router.get("/posts/:slug", async (req, res) => {
+  try {
+    if (!mongoReady()) return res.status(404).json({ message: "Post not found." });
+    const row = await Post.findOne({ slug: req.params.slug, published: true }).lean();
+    if (!row) return res.status(404).json({ message: "Post not found." });
+    res.setHeader("Cache-Control", "no-store");
+    res.json(row);
+  } catch {
+    res.status(404).json({ message: "Post not found." });
   }
 });
 
@@ -66,6 +80,7 @@ router.post("/posts", requireAdmin, async (req, res) => {
       image: req.body.image || {},
       published: req.body.published !== false,
     });
+    cacheBust();
     res.status(201).json(created);
   } catch {
     res.status(400).json({ message: "Could not save this post." });
@@ -76,6 +91,7 @@ router.delete("/posts/:id", requireAdmin, async (req, res) => {
   if (!mongoReady()) return res.status(400).json({ message: "MongoDB is required." });
   const row = await Post.findByIdAndDelete(req.params.id);
   if (row?.image?.publicId) await destroyAsset(row.image.publicId);
+  cacheBust();
   res.json({ ok: true });
 });
 
@@ -90,6 +106,7 @@ router.post("/gallery", requireAdmin, async (req, res) => {
       image: req.body.image || {},
       order: Number(req.body.order) || 0,
     });
+    cacheBust();
     res.status(201).json(created);
   } catch {
     res.status(400).json({ message: "Could not save this gallery item." });
@@ -100,6 +117,7 @@ router.delete("/gallery/:id", requireAdmin, async (req, res) => {
   if (!mongoReady()) return res.status(400).json({ message: "MongoDB is required." });
   const row = await GalleryItem.findByIdAndDelete(req.params.id);
   if (row?.image?.publicId) await destroyAsset(row.image.publicId);
+  cacheBust();
   res.json({ ok: true });
 });
 
@@ -114,6 +132,7 @@ router.post("/resources", requireAdmin, async (req, res) => {
       summary: String(req.body.summary || "").slice(0, 2000),
       file: req.body.file || {},
     });
+    cacheBust();
     res.status(201).json(created);
   } catch {
     res.status(400).json({ message: "Could not save this resource." });
@@ -124,6 +143,7 @@ router.delete("/resources/:id", requireAdmin, async (req, res) => {
   if (!mongoReady()) return res.status(400).json({ message: "MongoDB is required." });
   const row = await Resource.findByIdAndDelete(req.params.id);
   if (row?.file?.publicId) await destroyAsset(row.file.publicId);
+  cacheBust();
   res.json({ ok: true });
 });
 

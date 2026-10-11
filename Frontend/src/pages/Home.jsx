@@ -3,50 +3,56 @@ import { Link, useOutletContext } from "react-router-dom";
 import Hero from "../components/home/Hero";
 import VerifyCertificateCard from "../components/verify/VerifyCertificateCard";
 import RichHtml from "../components/cms/RichHtml";
-import { programmeGroups } from "../data/programmes";
 import { about } from "../data/about";
 import { useCatalog } from "../hooks/useContent";
-import { useCmsHome } from "../hooks/useCms";
+import { usePublicCms } from "../context/PublicCmsContext";
 import { features, graduateEmployers, site } from "../data/site";
 import { apiUrl } from "../services/apiBase";
-import { optimizedImage } from "../utils/media";
+import SmartImage from "../components/cms/SmartImage";
 
 export default function Home() {
   const { onBook } = useOutletContext();
-  const { data, error } = useCmsHome();
-  if (!data && !error) {
-    return <div className="animate-pulse px-4 py-24 text-center text-sm text-muted">Loading HIACDI…</div>;
-  }
-  if (!data) {
-    return (
-      <div>
-        <Hero onBook={onBook} />
-        <AboutSummary />
-        <ProgrammesOverview />
-        <ImpactStrip />
-        <section className="bg-soft px-4 py-14 sm:px-6 sm:py-20">
-          <VerifyCertificateCard compact />
-        </section>
-      </div>
-    );
-  }
-  const settings = data.settings || {};
+  const { data, error, retry, programmeGroups, posts } = usePublicCms();
+  const settings = data?.settings || {};
   const extras = {
-    stats: data.stats || [],
-    partners: data.partners?.length ? data.partners : graduateEmployers.map((item) => ({ name: item.name, logo: { url: item.src } })),
-    testimonials: data.testimonials || [],
-    slides: data.slides || [],
+    stats: data?.stats || [],
+    partners: data?.partners?.length ? data.partners : graduateEmployers.map((item) => ({ name: item.name, logo: { url: item.src } })),
+    testimonials: data?.testimonials || [],
+    slides: data?.slides || [],
+    programmeGroups,
+    posts,
   };
+  const sections = data?.sections || [];
   return (
     <div>
-      {(data.sections || []).map((section) => (
-        <HomeSection key={section.id || section.key} section={section} extras={extras} settings={settings} onBook={onBook} />
-      ))}
-      {(data.sections || []).some((row) => row.key === "verify") ? null : (
+      {error ? (
+        <div className="bg-amber-50 px-4 py-3 text-center text-sm text-navy">
+          Latest content could not refresh.{" "}
+          <button type="button" className="font-semibold underline" onClick={retry}>
+            Retry
+          </button>
+        </div>
+      ) : null}
+      {sections.length ? (
+        sections.map((section) => (
+          <HomeSection key={section.id || section.key} section={section} extras={extras} settings={settings} onBook={onBook} />
+        ))
+      ) : (
+        <>
+          <Hero onBook={onBook} settings={settings} slide={extras.slides[0]} />
+          <AboutSummary />
+          <ProgrammesOverview groups={programmeGroups} />
+          <ImpactStrip stats={extras.stats} />
+          <section className="bg-soft px-4 py-14 sm:px-6 sm:py-20">
+            <VerifyCertificateCard compact />
+          </section>
+        </>
+      )}
+      {sections.some((row) => row.key === "verify") ? null : sections.length ? (
         <section className="bg-soft px-4 py-14 sm:px-6 sm:py-20">
           <VerifyCertificateCard compact />
         </section>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -59,7 +65,7 @@ function HomeSection({ section, extras, settings, onBook }) {
     return <AboutSummary section={section} />;
   }
   if (section.key === "programmes-overview") {
-    return <ProgrammesOverview section={section} />;
+    return <ProgrammesOverview section={section} groups={extras.programmeGroups} />;
   }
   if (section.key === "impact") {
     return <ImpactStrip section={section} stats={extras.stats} />;
@@ -72,7 +78,7 @@ function HomeSection({ section, extras, settings, onBook }) {
     );
   }
   if (section.key === "news-preview") {
-    return <NewsPreview section={section} />;
+    return <NewsPreview section={section} posts={extras.posts} />;
   }
   if (section.key === "get-involved") {
     return <GetInvolvedBand section={section} />;
@@ -135,7 +141,7 @@ function AboutSummary({ section }) {
   );
 }
 
-function ProgrammesOverview({ section }) {
+function ProgrammesOverview({ section, groups = [] }) {
   return (
     <section className="bg-[#f7f4ec] px-4 py-14 sm:px-6 sm:py-16">
       <div className="mx-auto max-w-6xl">
@@ -143,7 +149,7 @@ function ProgrammesOverview({ section }) {
         <h2 className="font-heading mt-2 text-2xl font-bold text-navy sm:text-4xl">{section?.title || "Community work across twelve areas"}</h2>
         <RichHtml html={section?.body} className="mt-3 max-w-3xl text-sm text-muted" />
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {programmeGroups.map((group) => (
+          {groups.map((group) => (
             <Link key={group.slug} to={`/programmes/${group.slug}`} className="rounded-2xl bg-white p-5 shadow-sm hover:border-gold">
               <h3 className="font-heading font-bold text-navy">{group.title}</h3>
               <p className="mt-2 text-sm leading-6 text-muted">{group.summary}</p>
@@ -272,11 +278,13 @@ function Partners({ section, partners: cmsPartners }) {
       <div className="mx-auto mt-10 grid max-w-5xl grid-cols-2 items-center gap-x-6 gap-y-10 sm:mt-14 sm:grid-cols-3 md:grid-cols-5 md:gap-x-10 md:gap-y-12">
         {items.map((employer) => {
           const img = (
-            <img
-              src={optimizedImage(employer.src) || employer.src}
+            <SmartImage
+              src={employer.src}
               alt={employer.name}
+              width={160}
+              height={48}
               className="partner-logo max-h-10 w-auto object-contain sm:max-h-12"
-              loading="lazy"
+              sizes="160px"
             />
           );
           return (
@@ -362,8 +370,9 @@ function CommunityBanner() {
   );
 }
 
-function NewsPreview({ section }) {
+function NewsPreview({ section, posts = [] }) {
   const btn = section?.buttons?.[0];
+  const preview = posts.slice(0, 3);
   return (
     <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
       <p className="text-sm font-semibold text-gold">{section?.subtitle || "News & Events"}</p>
@@ -377,6 +386,16 @@ function NewsPreview({ section }) {
           Field updates, workshops, and campaigns. Open the news section for the full calendar.
         </p>
       )}
+      {preview.length ? (
+        <div className="mt-6 grid gap-4 sm:grid-cols-3">
+          {preview.map((post) => (
+            <Link key={post._id || post.slug} to={`/news/${post.slug}`} className="rounded-2xl border border-navy/10 bg-white p-5">
+              <h3 className="font-heading font-bold text-navy">{post.title}</h3>
+              <p className="mt-2 text-sm text-muted">{post.summary}</p>
+            </Link>
+          ))}
+        </div>
+      ) : null}
       <Link to={btn?.url || "/news"} className="mt-5 inline-flex text-sm font-semibold text-gold">
         {btn?.label || "News & Events →"}
       </Link>
@@ -452,11 +471,13 @@ function Testimonials({ section, testimonials: cmsItems }) {
               <p className="text-sm text-white/70">{item.role}</p>
             </div>
             {item.photo?.url ? (
-              <img
-                src={optimizedImage(item.photo.url, 200) || item.photo.url}
+              <SmartImage
+                src={item.photo.url}
                 alt=""
+                width={112}
+                height={112}
                 className="h-20 w-20 rounded-full object-contain sm:h-28 sm:w-28"
-                loading="lazy"
+                sizes="112px"
               />
             ) : null}
           </article>

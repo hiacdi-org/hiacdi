@@ -8,12 +8,19 @@ export function useLiveRefresh(load, { interval = 8000, enabled = true, paused =
     if (!enabled) return undefined;
     let cancelled = false;
 
+    let failures = 0;
+
     async function tick() {
       if (paused || cancelled) return;
       try {
         await loadRef.current();
+        failures = 0;
       } catch {
-        // keep the last good list
+        failures += 1;
+        if (failures >= 3) {
+          cancelled = true;
+          clearInterval(id);
+        }
       }
     }
 

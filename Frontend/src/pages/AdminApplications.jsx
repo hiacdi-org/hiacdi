@@ -92,6 +92,7 @@ function ApplicationWindowPanel() {
         setWin(data);
         setAllowRejectedReapply(data.allowRejectedReapply !== false);
       })
+      .catch(() => {})
       .finally(() => setLoading(false));
     const id = setInterval(refreshWindow, 30000);
     return () => clearInterval(id);

@@ -8,6 +8,7 @@ import { requireAdmin } from "../utils/auth.js";
 import { readJson, writeJson } from "../utils/localJson.js";
 import { rateLimit } from "../utils/rateLimit.js";
 import { sendContactAcknowledgementEmail, sendContactDecisionEmail, sendMail } from "../utils/mail.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
 import { clip, isEmail } from "../utils/sanitize.js";
 
 const storePath = join(dirname(fileURLToPath(import.meta.url)), "../data/contact-store.json");
@@ -30,13 +31,18 @@ function findLocalIndex(list, id) {
   return list.findIndex((item) => String(item.id) === String(id));
 }
 
-router.get("/", requireAdmin, async (_req, res) => {
-  const messages = await allMessages();
-  res.json({
-    messages,
-    unreadCount: messages.filter((item) => item.status === "unread").length,
-  });
-});
+router.get("/", requireAdmin, asyncHandler(async (_req, res) => {
+  try {
+    const messages = await allMessages();
+    res.json({
+      messages,
+      unreadCount: messages.filter((item) => item.status === "unread").length,
+    });
+  } catch (error) {
+    console.error("List contact messages failed:", error);
+    res.status(500).json({ message: "Could not load contact messages. Please try again." });
+  }
+}));
 
 router.patch("/:id/status", requireAdmin, async (req, res) => {
   const status = req.body?.status;
@@ -90,7 +96,7 @@ router.delete("/:id", requireAdmin, async (req, res) => {
   }
 });
 
-router.post("/", rateLimit({ max: 8 }), async (req, res) => {
+router.post("/", rateLimit({ max: 8 }), asyncHandler(async (req, res) => {
   const body = req.body || {};
   const fullName = clip(body.fullName, 120);
   const email = clip(body.email, 160);
@@ -121,18 +127,29 @@ router.post("/", rateLimit({ max: 8 }), async (req, res) => {
     } else {
       writeJson(storePath, [{ ...record, id: crypto.randomUUID() }, ...readJson(storePath, [])]);
     }
-  } catch {
-    writeJson(storePath, [{ ...record, id: crypto.randomUUID() }, ...readJson(storePath, [])]);
+  } catch (error) {
+    console.error("Contact save to Mongo failed, using local store:", error);
+    try {
+      writeJson(storePath, [{ ...record, id: crypto.randomUUID() }, ...readJson(storePath, [])]);
+    } catch (localError) {
+      console.error("Contact local save failed:", localError);
+      return res.status(500).json({ message: "Could not save your message. Please try again." });
+    }
   }
 
-  sendMail({
-    to: notifyTo,
-    subject: `New contact message: ${subject}`,
-    text: [`Full name: ${fullName}`, `Email: ${email}`, `Phone: ${phone}`, `Subject: ${subject}`, "", message].join("\n"),
-  }).catch(() => {});
-
-  const ack = await sendContactAcknowledgementEmail({ to: email, fullName, subject });
-  return res.status(201).json({ ok: true, emailed: ack.emailed });
-});
+  let emailed = false;
+  try {
+    sendMail({
+      to: notifyTo,
+      subject: `New contact message: ${subject}`,
+      text: [`Full name: ${fullName}`, `Email: ${email}`, `Phone: ${phone}`, `Subject: ${subject}`, "", message].join("\n"),
+    }).catch((error) => console.error("Contact notify email failed:", error));
+    const ack = await sendContactAcknowledgementEmail({ to: email, fullName, subject });
+    emailed = Boolean(ack?.emailed);
+  } catch (error) {
+    console.error("Contact acknowledgement email failed:", error);
+  }
+  return res.status(201).json({ ok: true, emailed });
+}));
 
 export default router;

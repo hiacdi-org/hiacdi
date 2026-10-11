@@ -1,38 +1,38 @@
 import { useEffect, useState } from "react";
-import { fetchCmsFaqs, fetchCmsHome, fetchCmsNavigation, fetchCmsPage, fetchCmsTeam, fetchSite } from "../services/api";
-import { navLinks, site as fallbackSite } from "../data/site";
+import { fetchCmsFaqs, fetchCmsPage, fetchCmsTeam } from "../services/api";
+import { usePublicCms } from "../context/PublicCmsContext";
 
 export function useCmsHome() {
-  const [data, setData] = useState(null);
-  const [error, setError] = useState("");
-  useEffect(() => {
-    fetchCmsHome()
-      .then(setData)
-      .catch(() => setError("offline"));
-  }, []);
-  return { data, error, loading: !data && !error };
+  const { data, error, loading, retry } = usePublicCms();
+  return { data, error, loading, retry };
 }
 
 export function useCmsNav() {
-  const [items, setItems] = useState(null);
-  useEffect(() => {
-    fetchCmsNavigation()
-      .then(setItems)
-      .catch(() =>
-        setItems(navLinks.map((link, index) => ({ id: link.to, label: link.label, url: link.to, order: index, visible: true })))
-      );
-  }, []);
-  return items || navLinks.map((link, index) => ({ id: link.to, label: link.label, url: link.to, order: index, visible: true }));
+  return usePublicCms().nav;
 }
 
 export function useCmsPage(page) {
-  const [data, setData] = useState({ sections: [] });
+  const [data, setData] = useState(null);
+  const [error, setError] = useState("");
+
   useEffect(() => {
+    let cancelled = false;
     fetchCmsPage(page)
-      .then(setData)
-      .catch(() => setData({ sections: [] }));
+      .then((value) => {
+        if (!cancelled) setData(value);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setData({ sections: [] });
+          setError("offline");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [page]);
-  return data;
+
+  return { ...(data || { sections: [] }), error, loading: data === null };
 }
 
 export function useCmsTeam() {
@@ -52,9 +52,6 @@ export function useCmsFaqs() {
 }
 
 export function usePublicSite() {
-  const [data, setData] = useState(fallbackSite);
-  useEffect(() => {
-    fetchSite().then(setData).catch(() => {});
-  }, []);
-  return data;
+  const { site, error, loading, retry } = usePublicCms();
+  return { ...site, error, loading, retry };
 }

@@ -44,6 +44,16 @@ test("draft status is stored and public filter excludes it", async () => {
   await updateItem("stats", first.id, { ...first, status: "published" }, "test");
 });
 
+test("localhost and private hosts skip production HTTPS redirects", async () => {
+  const { isLoopbackOrPrivateHost, isLocalDevOrigin } = await import("../utils/hosts.js");
+  assert.equal(isLoopbackOrPrivateHost("localhost:5000"), true);
+  assert.equal(isLoopbackOrPrivateHost("127.0.0.1:5000"), true);
+  assert.equal(isLoopbackOrPrivateHost("172.20.10.4:5000"), true);
+  assert.equal(isLoopbackOrPrivateHost("hiacdi.org"), false);
+  assert.equal(isLocalDevOrigin("http://localhost:5175"), true);
+  assert.equal(isLocalDevOrigin("https://hiacdi.org"), false);
+});
+
 test("cleanSettings strips script tags from footer HTML", () => {
   const cleaned = cleanSettings({
     organizationName: "HIACDI",
@@ -55,4 +65,27 @@ test("cleanSettings strips script tags from footer HTML", () => {
   });
   assert.equal(cleaned.footerText.includes("<script"), false);
   assert.equal(cleaned.footerText.includes("<p>Hello</p>"), true);
+});
+
+test("asyncHandler turns a thrown route into JSON 500 instead of crashing", async () => {
+  const express = (await import("express")).default;
+  const { asyncHandler } = await import("../utils/asyncHandler.js");
+  const app = express();
+  app.get("/boom", asyncHandler(async () => {
+    throw new Error("simulated route failure");
+  }));
+  app.use((err, _req, res, _next) => {
+    res.status(500).json({ message: "Something went wrong." });
+  });
+  const server = await new Promise((resolve) => {
+    const instance = app.listen(0, "127.0.0.1", () => resolve(instance));
+  });
+  const { port } = server.address();
+  const response = await fetch(`http://127.0.0.1:${port}/boom`);
+  const body = await response.json();
+  assert.equal(response.status, 500);
+  assert.equal(body.message, "Something went wrong.");
+  const health = await fetch(`http://127.0.0.1:${port}/boom`);
+  assert.equal(health.status, 500);
+  await new Promise((resolve) => server.close(resolve));
 });

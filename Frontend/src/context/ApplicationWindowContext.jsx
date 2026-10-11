@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { fetchApplicationWindow } from "../services/api";
+import { fetchApplicationWindow, isServerUnreachableError } from "../services/api";
+import { useServerReachability } from "./ServerReachabilityContext";
 
 const empty = {
   isOpen: false,
@@ -20,7 +21,7 @@ const ApplicationWindowContext = createContext({
     isCourseOpen: () => false,
 });
 
-const POLL_MS = 8000;
+const POLL_MS = 30000;
 
 export function isCourseOpenIn(data, categorySlug, programSlug) {
   if (!data) return false;
@@ -35,11 +36,15 @@ export function isCourseOpenIn(data, categorySlug, programSlug) {
 export function ApplicationWindowProvider({ children }) {
   const [state, setState] = useState(empty);
   const activeRef = useRef(true);
+  const healthyRef = useRef(true);
+  const { markDown, markUp, subscribe } = useServerReachability();
 
   const load = useCallback(() => {
     fetchApplicationWindow()
       .then((data) => {
         if (!activeRef.current || !data) return;
+        healthyRef.current = true;
+        markUp();
         setState({
           isOpen: Boolean(data.displayDeadline?.isOpen ?? (data.anyOpen !== false && data.isOpen !== false)),
           anyOpen: data.anyOpen !== false,
@@ -53,20 +58,27 @@ export function ApplicationWindowProvider({ children }) {
           loading: false,
         });
       })
-      .catch(() => {
-        // keep the last known state on transient network errors
+      .catch((error) => {
+        if (isServerUnreachableError(error)) {
+          healthyRef.current = false;
+          markDown();
+        }
       });
-  }, []);
+  }, [markDown, markUp]);
 
   useEffect(() => {
     activeRef.current = true;
     load();
-    const id = setInterval(load, POLL_MS);
+    const id = setInterval(() => {
+      if (healthyRef.current) load();
+    }, POLL_MS);
+    const unsubscribe = subscribe(load);
     return () => {
       activeRef.current = false;
       clearInterval(id);
+      unsubscribe();
     };
-  }, [load]);
+  }, [load, subscribe]);
 
   const isCourseOpen = useCallback(
     (categorySlug, programSlug) => isCourseOpenIn(state, categorySlug, programSlug),

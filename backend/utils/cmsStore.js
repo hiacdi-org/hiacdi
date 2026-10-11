@@ -6,6 +6,7 @@ import { CMS_MODELS } from "../models/cms.js";
 import { readJson, writeJson } from "./localJson.js";
 import { destroyAsset } from "../config/cloudinary.js";
 import { sanitizeHtml, sanitizePlain, isValidEmail, isValidHttpUrl, isValidPhone } from "./htmlSanitize.js";
+import { cacheBust } from "./publicCache.js";
 import {
   defaultFaqs,
   defaultNav,
@@ -248,12 +249,14 @@ export async function upsertSettings(body, admin) {
   if (mongoReady()) {
     const row = await CMS_MODELS.settings.findOneAndUpdate({}, next, { upsert: true, new: true, setDefaultsOnInsert: true });
     await saveAudit(admin, "update", "settings", row._id, "Updated site settings");
+    cacheBust();
     return withId(row.toObject());
   }
   const store = readStore();
   store.settings = { ...previous, ...next, id: previous.id || "settings", updatedAt: new Date().toISOString() };
   writeStore(store);
   await saveAudit(admin, "update", "settings", store.settings.id, "Updated site settings");
+  cacheBust();
   return store.settings;
 }
 
@@ -262,6 +265,7 @@ export async function createItem(kind, body, admin) {
   if (mongoReady()) {
     const created = await CMS_MODELS[kind].create(payload);
     await saveAudit(admin, "create", kind, created._id, `Created ${kind}`);
+    cacheBust();
     return withId(created.toObject());
   }
   const store = readStore();
@@ -270,6 +274,7 @@ export async function createItem(kind, body, admin) {
   store[kind].push(created);
   writeStore(store);
   await saveAudit(admin, "create", kind, created.id, `Created ${kind}`);
+  cacheBust();
   return created;
 }
 
@@ -287,12 +292,14 @@ export async function updateItem(kind, id, body, admin) {
     const row = await CMS_MODELS[kind].findByIdAndUpdate(id, payload, { new: true });
     if (!row) throw new Error("Not found.");
     await saveAudit(admin, "update", kind, id, `Updated ${kind}`);
+    cacheBust();
     return withId(row.toObject());
   }
   const store = readStore();
   store[kind] = (store[kind] || []).map((row) => (String(row.id) === String(id) ? { ...row, ...payload, updatedAt: new Date().toISOString() } : row));
   writeStore(store);
   await saveAudit(admin, "update", kind, id, `Updated ${kind}`);
+  cacheBust();
   return store[kind].find((row) => String(row.id) === String(id));
 }
 
@@ -313,6 +320,7 @@ export async function deleteItem(kind, id, admin) {
     writeStore(store);
   }
   await saveAudit(admin, "delete", kind, id, `Deleted ${kind}`);
+  cacheBust();
   return { ok: true };
 }
 
@@ -329,6 +337,7 @@ export async function reorderItems(kind, ids, admin) {
     writeStore(store);
   }
   await saveAudit(admin, "reorder", kind, "", `Reordered ${kind}`);
+  cacheBust();
   return loadCollection(kind);
 }
 
@@ -369,7 +378,27 @@ export async function listAudit({ page = 1, limit = 20 } = {}) {
   return { rows: rows.slice(skip, skip + limit), total: rows.length, page, limit };
 }
 
+let seedDone = false;
+let seedInflight = null;
+
+export function invalidateCmsSeed() {
+  seedDone = false;
+}
+
 export async function ensureCmsSeeded() {
+  if (seedDone) return;
+  if (seedInflight) return seedInflight;
+  seedInflight = runCmsSeed()
+    .then(() => {
+      seedDone = true;
+    })
+    .finally(() => {
+      seedInflight = null;
+    });
+  return seedInflight;
+}
+
+async function runCmsSeed() {
   const stamp = (row, extra = {}) => ({
     ...row,
     visible: true,
@@ -378,6 +407,11 @@ export async function ensureCmsSeeded() {
     ...extra,
   });
   if (mongoReady()) {
+    const [settings, homeCount] = await Promise.all([
+      CMS_MODELS.settings.findOne().select("_id").lean(),
+      CMS_MODELS.sections.countDocuments({ page: "home" }),
+    ]);
+    if (settings && homeCount) return;
     const dedupe = async (kind, keyFn) => {
       const rows = await CMS_MODELS[kind].find().sort({ updatedAt: -1, createdAt: -1 }).lean();
       const seen = new Set();
@@ -441,13 +475,15 @@ export async function ensureCmsSeeded() {
 
 export async function publicHome({ preview = false } = {}) {
   await ensureCmsSeeded();
-  const [settings, sections, stats, slides, partners, testimonials] = await Promise.all([
+  const [settings, sections, stats, slides, partners, testimonials, nav, extras] = await Promise.all([
     loadSettings(),
     loadCollection("sections"),
     loadCollection("stats"),
     loadCollection("slides"),
     loadCollection("partners"),
     loadCollection("testimonials"),
+    loadCollection("nav"),
+    loadHomeExtras(),
   ]);
   const homeSections = publishedOnly(sections.filter((row) => row.page === "home"), { preview });
   return {
@@ -457,7 +493,33 @@ export async function publicHome({ preview = false } = {}) {
     slides: sortRows(publishedOnly(slides, { preview })),
     partners: sortRows(publishedOnly(partners, { preview })),
     testimonials: sortRows(publishedOnly(testimonials, { preview })),
+    nav: sortRows(publishedOnly(nav, { preview })),
+    programmeGroups: extras.programmeGroups,
+    posts: extras.posts,
   };
+}
+
+async function loadHomeExtras() {
+  const empty = { programmeGroups: [], posts: [] };
+  if (!mongoReady()) return empty;
+  try {
+    const Programme = (await import("../models/Programme.js")).default;
+    const { Post } = await import("../models/Content.js");
+    const [programmeGroups, posts] = await Promise.all([
+      Programme.find({ isGroup: true })
+        .select("title slug summary coverImage order educationSite")
+        .sort({ order: 1 })
+        .lean(),
+      Post.find({ published: true })
+        .select("title slug category summary image createdAt")
+        .sort({ createdAt: -1 })
+        .limit(3)
+        .lean(),
+    ]);
+    return { programmeGroups, posts };
+  } catch {
+    return empty;
+  }
 }
 
 export function mapSettingsToLegacy(settings) {
